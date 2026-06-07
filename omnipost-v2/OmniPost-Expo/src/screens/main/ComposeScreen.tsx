@@ -4,7 +4,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { Colors, Spacing, Radius } from '../../constants/theme';
+import { Colors, Spacing, Radius, useTheme } from '../../constants/theme';
 import { Button, Card, PlatformIcon, Toggle, Badge } from '../../components/UI';
 import { MOCK_ACCOUNTS, MOCK_HASHTAG_SETS } from '../../services/mockData';
 import { PLATFORMS } from '../../constants/platforms';
@@ -13,6 +13,9 @@ import Toast from 'react-native-toast-message';
 type PublishResult = { platform: string; status: 'success' | 'failed' };
 
 export default function ComposeScreen({ navigation }: any) {
+  const { colors } = useTheme();
+  const s = React.useMemo(() => getStyles(colors), [colors]);
+
   const [text, setText]             = useState('');
   const [hashtags, setHashtags]     = useState<string[]>([]);
   const [tagInput, setTagInput]     = useState('');
@@ -59,7 +62,7 @@ export default function ComposeScreen({ navigation }: any) {
 
   const minLimit = selObjs.length > 0 ? Math.min(...selObjs.map(a => PLATFORMS[a.platform as keyof typeof PLATFORMS]?.maxChars ?? 2200)) : 2200;
   const charPct  = Math.min(100, (fullText.length / minLimit) * 100);
-  const charColor = charPct > 100 ? Colors.danger : charPct > 80 ? Colors.warning : Colors.success;
+  const charColor = charPct > 100 ? colors.danger : charPct > 80 ? colors.warning : colors.success;
 
   if (step === 'results' && results) {
     return (
@@ -68,9 +71,9 @@ export default function ComposeScreen({ navigation }: any) {
         {results.map(r => {
           const pl = PLATFORMS[r.platform as keyof typeof PLATFORMS];
           return (
-            <View key={r.platform} style={[s.resultCard, { borderColor: r.status === 'success' ? Colors.success + '44' : Colors.danger + '44', backgroundColor: r.status === 'success' ? Colors.successDim : Colors.dangerDim }]}>
+            <View key={r.platform} style={[s.resultCard, { borderColor: r.status === 'success' ? colors.success + '44' : colors.danger + '44', backgroundColor: r.status === 'success' ? colors.successDim : colors.dangerDim }]}>
               <PlatformIcon platformId={r.platform} size={28} />
-              <Text style={[s.resultPlatform, { color: r.status === 'success' ? Colors.success : Colors.danger }]}>{pl?.name}</Text>
+              <Text style={[s.resultPlatform, { color: r.status === 'success' ? colors.success : colors.danger }]}>{pl?.name}</Text>
               <Text style={{ fontSize: 18, marginLeft: 'auto' }}>{r.status === 'success' ? '✅' : '❌'}</Text>
             </View>
           );
@@ -93,10 +96,10 @@ export default function ComposeScreen({ navigation }: any) {
             const pl  = PLATFORMS[acc.platform as keyof typeof PLATFORMS];
             return (
               <TouchableOpacity key={acc.id} onPress={() => toggleAccount(acc.id)}
-                style={[s.accountChip, sel && { borderColor: pl?.color ?? Colors.brand, backgroundColor: (pl?.color ?? Colors.brand) + '18' }]}>
+                style={[s.accountChip, sel && { borderColor: pl?.color ?? colors.brand, backgroundColor: (pl?.color ?? colors.brand) + '18' }]}>
                 <PlatformIcon platformId={acc.platform} size={20} />
-                <Text style={[s.accountChipText, sel && { color: Colors.text }]}>{acc.username}</Text>
-                {sel && <Text style={{ color: pl?.color ?? Colors.brand, fontSize: 12 }}>✓</Text>}
+                <Text style={[s.accountChipText, sel && { color: colors.text }]}>{acc.username}</Text>
+                {sel && <Text style={{ color: pl?.color ?? colors.brand, fontSize: 12 }}>✓</Text>}
               </TouchableOpacity>
             );
           })}
@@ -110,7 +113,7 @@ export default function ComposeScreen({ navigation }: any) {
               return (
                 <View key={a.id} style={[s.charChip, over && s.charChipOver]}>
                   <PlatformIcon platformId={a.platform} size={14} />
-                  <Text style={[s.charText, { color: over ? Colors.danger : Colors.textMuted }]}>{fullText.length}/{lim}</Text>
+                  <Text style={[s.charText, { color: over ? colors.danger : colors.textMuted }]}>{fullText.length}/{lim}</Text>
                 </View>
               );
             })}
@@ -120,7 +123,7 @@ export default function ComposeScreen({ navigation }: any) {
         <Text style={s.sectionLabel}>CAPTION</Text>
         <View style={s.textAreaWrapper}>
           <TextInput value={text} onChangeText={setText} multiline
-            placeholder="What's on your mind? Share your story..." placeholderTextColor={Colors.textMuted} style={s.textArea} />
+            placeholder="What's on your mind? Share your story..." placeholderTextColor={colors.textMuted} style={s.textArea} />
           <View style={s.charIndicator}>
             <Text style={[s.charCount, { color: charColor }]}>{fullText.length}</Text>
           </View>
@@ -152,7 +155,7 @@ export default function ComposeScreen({ navigation }: any) {
         </View>
         <View style={s.tagInputRow}>
           <TextInput value={tagInput} onChangeText={setTagInput} onSubmitEditing={() => addTag(tagInput)}
-            placeholder="#hashtag (tap Enter)" placeholderTextColor={Colors.textMuted} style={s.tagInput} returnKeyType="done" />
+            placeholder="#hashtag (tap Enter)" placeholderTextColor={colors.textMuted} style={s.tagInput} returnKeyType="done" />
           <TouchableOpacity onPress={() => addTag(tagInput)} style={s.tagAddBtn}>
             <Text style={s.tagAddText}>Add</Text>
           </TouchableOpacity>
@@ -164,8 +167,8 @@ export default function ComposeScreen({ navigation }: any) {
         </View>
         {isScheduled && (
           <View style={s.schedRow}>
-            <TextInput value={schedDate} onChangeText={setSchedDate} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.textMuted} style={[s.tagInput, { flex: 1 }]} />
-            <TextInput value={schedTime} onChangeText={setSchedTime} placeholder="HH:MM" placeholderTextColor={Colors.textMuted} style={[s.tagInput, { flex: 1 }]} />
+            <TextInput value={schedDate} onChangeText={setSchedDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textMuted} style={[s.tagInput, { flex: 1 }]} />
+            <TextInput value={schedTime} onChangeText={setSchedTime} placeholder="HH:MM" placeholderTextColor={colors.textMuted} style={[s.tagInput, { flex: 1 }]} />
           </View>
         )}
 
@@ -182,14 +185,14 @@ export default function ComposeScreen({ navigation }: any) {
             </View>
             <TextInput defaultValue={text} multiline
               placeholder={`Custom caption for ${PLATFORMS[acc.platform as keyof typeof PLATFORMS]?.name}...`}
-              placeholderTextColor={Colors.textMuted} style={[s.textArea, { minHeight: 70 }]} />
+              placeholderTextColor={colors.textMuted} style={[s.textArea, { minHeight: 70 }]} />
           </View>
         ))}
 
         <View style={s.actionRow}>
           <Text style={s.selectedCount}>{selected.length} platform{selected.length !== 1 ? 's' : ''}</Text>
           {publishing
-            ? <View style={s.publishingBox}><ActivityIndicator color={Colors.brand} /><Text style={s.publishingText}>Publishing...</Text></View>
+            ? <View style={s.publishingBox}><ActivityIndicator color={colors.brand} /><Text style={s.publishingText}>Publishing...</Text></View>
             : (
               <TouchableOpacity onPress={handlePublish} disabled={!text.trim() || selected.length === 0}
                 style={[s.publishBtn, (!text.trim() || selected.length === 0) && { opacity: 0.5 }]}>
@@ -204,46 +207,46 @@ export default function ComposeScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root:           { flex: 1, backgroundColor: Colors.bg0 },
+const getStyles = (colors: typeof Colors) => StyleSheet.create({
+  root:           { flex: 1, backgroundColor: colors.bg0 },
   content:        { padding: Spacing.lg },
-  sectionLabel:   { fontSize: 10, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16 },
+  sectionLabel:   { fontSize: 10, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16 },
   sectionRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 },
   accountRow:     { gap: 8, paddingBottom: 4 },
-  accountChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: Colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  accountChipText:{ fontSize: 11, color: Colors.textSec, fontWeight: '500' },
+  accountChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 7, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  accountChipText:{ fontSize: 11, color: colors.textSec, fontWeight: '500' },
   charRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  charChip:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: Colors.bg2, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
-  charChipOver:   { borderColor: Colors.danger + '66', backgroundColor: Colors.dangerDim },
+  charChip:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: colors.bg2, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  charChipOver:   { borderColor: colors.danger + '66', backgroundColor: colors.dangerDim },
   charText:       { fontSize: 10 },
   textAreaWrapper:{ position: 'relative' },
-  textArea:       { backgroundColor: Colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, color: Colors.text, fontSize: 14, minHeight: 120, lineHeight: 22, textAlignVertical: 'top' },
-  charIndicator:  { position: 'absolute', bottom: 10, right: 10, backgroundColor: Colors.bg3, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  textArea:       { backgroundColor: colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, color: colors.text, fontSize: 14, minHeight: 120, lineHeight: 22, textAlignVertical: 'top' },
+  charIndicator:  { position: 'absolute', bottom: 10, right: 10, backgroundColor: colors.bg3, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
   charCount:      { fontSize: 10, fontWeight: '700' },
-  savedSetsBtn:   { fontSize: 12, color: Colors.brand, fontWeight: '600' },
+  savedSetsBtn:   { fontSize: 12, color: colors.brand, fontWeight: '600' },
   hsetRow:        { gap: 8, paddingBottom: 8 },
-  hsetChip:       { paddingHorizontal: 12, paddingVertical: 7, backgroundColor: Colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  hsetText:       { fontSize: 12, color: Colors.textSec },
+  hsetChip:       { paddingHorizontal: 12, paddingVertical: 7, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  hsetText:       { fontSize: 12, color: colors.textSec },
   tagsWrap:       { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  tag:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, backgroundColor: Colors.brandDim, borderRadius: 20, borderWidth: 1, borderColor: Colors.brandBdr },
-  tagText:        { fontSize: 12, color: Colors.brand, fontWeight: '600' },
+  tag:            { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, backgroundColor: colors.brandDim, borderRadius: 20, borderWidth: 1, borderColor: colors.brandBdr },
+  tagText:        { fontSize: 12, color: colors.brand, fontWeight: '600' },
   tagInputRow:    { flexDirection: 'row', gap: 8 },
-  tagInput:       { flex: 1, backgroundColor: Colors.bg2, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10, color: Colors.text, fontSize: 13 },
-  tagAddBtn:      { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: Colors.bg3, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center' },
-  tagAddText:     { fontSize: 13, color: Colors.textSec, fontWeight: '600' },
-  optionRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  optionLabel:    { fontSize: 14, color: Colors.textSec },
+  tagInput:       { flex: 1, backgroundColor: colors.bg2, borderRadius: 10, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 13 },
+  tagAddBtn:      { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.bg3, borderRadius: 10, borderWidth: 1, borderColor: colors.border, justifyContent: 'center' },
+  tagAddText:     { fontSize: 13, color: colors.textSec, fontWeight: '600' },
+  optionRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  optionLabel:    { fontSize: 14, color: colors.textSec },
   schedRow:       { flexDirection: 'row', gap: 10, marginTop: 10, marginBottom: 4 },
-  customCard:     { backgroundColor: Colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, marginTop: 10 },
+  customCard:     { backgroundColor: colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginTop: 10 },
   customHeader:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  customTitle:    { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.text },
-  actionRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  selectedCount:  { fontSize: 12, color: Colors.textMuted },
-  publishBtn:     { backgroundColor: Colors.brand, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 13 },
-  publishBtnText: { fontSize: 14, fontWeight: '800', color: Colors.white },
+  customTitle:    { flex: 1, fontSize: 13, fontWeight: '600', color: colors.text },
+  actionRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: colors.border },
+  selectedCount:  { fontSize: 12, color: colors.textMuted },
+  publishBtn:     { backgroundColor: colors.brand, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 13 },
+  publishBtnText: { fontSize: 14, fontWeight: '800', color: colors.white },
   publishingBox:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  publishingText: { fontSize: 13, color: Colors.textSec },
-  resultsTitle:   { fontSize: 20, fontWeight: '900', color: Colors.text, marginBottom: 20, textAlign: 'center' },
+  publishingText: { fontSize: 13, color: colors.textSec },
+  resultsTitle:   { fontSize: 20, fontWeight: '900', color: colors.text, marginBottom: 20, textAlign: 'center' },
   resultCard:     { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10 },
   resultPlatform: { flex: 1, fontSize: 14, fontWeight: '700' },
 });

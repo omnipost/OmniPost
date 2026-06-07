@@ -6,6 +6,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import { logger } from './config/logger';
+import { connectDB } from './config/database';
 
 // Routes
 import authRoutes      from './routes/auth';
@@ -105,8 +106,11 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ── Start server ─────────────────────────────────────────────────
-app.listen(PORT, () => {
-  logger.info(`🚀 OmniPost API running on port ${PORT} [${process.env.NODE_ENV}]`);
-});
+(async () => {
+  await connectDB();
+  app.listen(PORT, () => {
+    logger.info(`🚀 OmniPost API running on port ${PORT} [${process.env.NODE_ENV}]`);
+  });
+})();
 
 export default app;

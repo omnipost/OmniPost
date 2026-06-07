@@ -2,19 +2,22 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform, Alert, Image,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors, Spacing } from '../../constants/theme';
+import { Colors, Spacing, useTheme } from '../../constants/theme';
+// Colors re-exported for getStyles type param only
 import { Button, InputField } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
-import { MOCK_USER } from '../../services/mockData';
+import { authApi } from '../../services/api';
 import { PLATFORMS } from '../../constants/platforms';
 import type { RootStackParamList } from '../../types';
 
 type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Register'> };
 
 export default function RegisterScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const [name, setName]       = useState('');
   const [email, setEmail]     = useState('');
   const [mobile, setMobile]   = useState('');
@@ -27,18 +30,37 @@ export default function RegisterScreen({ navigation }: Props) {
       return Alert.alert('Missing fields', 'Please fill in all required fields');
     if (password.length < 8)
       return Alert.alert('Weak password', 'Password must be at least 8 characters');
+
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1100));
-    setAuth({ ...MOCK_USER, name }, 'demo_token_xyz');
-    navigation.navigate('Onboarding');
-    setLoading(false);
+    try {
+      const mockUser = {
+        id: 'demo-user-id-' + Math.random().toString(36).substring(2, 9),
+        name: name.trim(),
+        email: email.trim(),
+        mobile: mobile.trim() || undefined,
+        plan: 'creator' as const,
+        isVerified: true,
+        createdAt: new Date().toISOString(),
+      };
+      setAuth(mockUser, 'mock-access-token');
+      navigation.replace('Onboarding');
+    } catch (error: any) {
+      const message = error?.response?.data?.error || 'Registration failed. Please try again.';
+      Alert.alert('Registration Failed', message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.logoRow}>
-          <View style={styles.logoBox}><Text style={styles.logoIcon}>⚡</Text></View>
+          <Image
+            source={require('../../../assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <Text style={styles.logoText}>OmniPost</Text>
         </View>
         <Text style={styles.h1}>Create account</Text>
@@ -66,28 +88,29 @@ export default function RegisterScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root:       { flex: 1, backgroundColor: Colors.bg0 },
+const getStyles = (colors: typeof Colors) => StyleSheet.create({
+  root:       { flex: 1, backgroundColor: colors.bg0 },
   scroll:     { padding: Spacing.xl, paddingTop: 56 },
   logoRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 28 },
-  logoBox:    { width: 38, height: 38, borderRadius: 11, backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center' },
-  logoIcon:   { fontSize: 20 },
-  logoText:   { fontSize: 22, fontWeight: '900', color: Colors.text },
-  h1:         { fontSize: 26, fontWeight: '900', color: Colors.text, marginBottom: 6 },
-  sub:        { fontSize: 14, color: Colors.textSec, marginBottom: 18 },
-  trialBadge: { backgroundColor: Colors.successDim, borderRadius: 10, borderWidth: 1, borderColor: Colors.success + '44', padding: 12, marginBottom: 20 },
-  trialText:  { fontSize: 13, color: Colors.success, fontWeight: '600', textAlign: 'center' },
+  logoImage:  { width: 38, height: 38, borderRadius: 11 },
+  logoText:   { fontSize: 22, fontWeight: '900', color: colors.text },
+  h1:         { fontSize: 26, fontWeight: '900', color: colors.text, marginBottom: 6 },
+  sub:        { fontSize: 14, color: colors.textSec, marginBottom: 18 },
+  trialBadge: { backgroundColor: colors.successDim, borderRadius: 10, borderWidth: 1, borderColor: colors.success + '44', padding: 12, marginBottom: 20 },
+  trialText:  { fontSize: 13, color: colors.success, fontWeight: '600', textAlign: 'center' },
   mobileRow:  { flexDirection: 'row', gap: 10, alignItems: 'flex-end', marginBottom: 14 },
-  dialCode:   { backgroundColor: Colors.bg2, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12 },
-  dialText:   { fontSize: 14, color: Colors.textSec, fontWeight: '600' },
-  hint:       { fontSize: 11, color: Colors.textMuted, textAlign: 'center', marginBottom: 14, lineHeight: 16 },
+  dialCode:   { backgroundColor: colors.bg2, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
+  dialText:   { fontSize: 14, color: colors.textSec, fontWeight: '600' },
+  hint:       { fontSize: 11, color: colors.textMuted, textAlign: 'center', marginBottom: 14, lineHeight: 16 },
   loginRow:   { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  loginText:  { fontSize: 13, color: Colors.textSec },
-  loginLink:  { fontSize: 13, color: Colors.brand, fontWeight: '700' },
+  loginText:  { fontSize: 13, color: colors.textSec },
+  loginLink:  { fontSize: 13, color: colors.brand, fontWeight: '700' },
 });
 
 // ── OnboardingScreen ─────────────────────────────────────────
 export function OnboardingScreen({ navigation }: { navigation: any }) {
+  const { colors } = useTheme();
+  const ob = React.useMemo(() => getObStyles(colors), [colors]);
   const [step, setStep]           = useState(0);
   const [connected, setConnected] = useState<string[]>([]);
   const steps = ['Welcome', 'Connect', 'Plan', 'Done'];
@@ -98,7 +121,7 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.bg0 }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg0 }}>
       <View style={ob.progressBar}>
         {steps.map((s, i) => (
           <View key={s} style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
@@ -131,7 +154,7 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
                     <View style={[ob.platformIcon, { backgroundColor: p.color + '22' }]}>
                       <Text style={{ color: p.color, fontWeight: '800', fontSize: 12 }}>{p.abbr}</Text>
                     </View>
-                    <Text style={[ob.platformName, sel && { color: Colors.text }]}>{p.name}</Text>
+                    <Text style={[ob.platformName, sel && { color: colors.text }]}>{p.name}</Text>
                     {sel && <Text style={{ color: p.color, fontSize: 16, position: 'absolute', top: 6, right: 8 }}>✓</Text>}
                   </TouchableOpacity>
                 );
@@ -178,29 +201,29 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
   );
 }
 
-const ob = StyleSheet.create({
+const getObStyles = (colors: typeof Colors) => StyleSheet.create({
   progressBar:    { flexDirection: 'row', padding: 20, paddingTop: 52, alignItems: 'center' },
-  stepDot:        { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.bg3, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
-  stepDotActive:  { backgroundColor: Colors.brand, borderColor: Colors.brand },
-  stepNum:        { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
-  stepNumActive:  { color: Colors.white },
-  stepLine:       { flex: 1, height: 2, backgroundColor: Colors.border, marginHorizontal: 4 },
-  stepLineActive: { backgroundColor: Colors.brand },
+  stepDot:        { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bg3, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  stepDotActive:  { backgroundColor: colors.brand, borderColor: colors.brand },
+  stepNum:        { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+  stepNumActive:  { color: colors.white },
+  stepLine:       { flex: 1, height: 2, backgroundColor: colors.border, marginHorizontal: 4 },
+  stepLineActive: { backgroundColor: colors.brand },
   content:        { padding: Spacing.xl, paddingTop: 16 },
   centerBox:      { alignItems: 'center', paddingTop: 32 },
   bigEmoji:       { fontSize: 60, marginBottom: 16 },
-  stepTitle:      { fontSize: 22, fontWeight: '900', color: Colors.text, marginBottom: 10, textAlign: 'center' },
-  stepDesc:       { fontSize: 14, color: Colors.textSec, textAlign: 'center', lineHeight: 22, marginBottom: 4 },
+  stepTitle:      { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 10, textAlign: 'center' },
+  stepDesc:       { fontSize: 14, color: colors.textSec, textAlign: 'center', lineHeight: 22, marginBottom: 4 },
   platformGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
-  platformCard:   { width: '47%', padding: 14, backgroundColor: Colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', gap: 6 },
+  platformCard:   { width: '47%', padding: 14, backgroundColor: colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 6 },
   platformIcon:   { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  platformName:   { fontSize: 12, fontWeight: '600', color: Colors.textSec, textAlign: 'center' },
-  planCard:       { backgroundColor: Colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 18, marginBottom: 12, position: 'relative' },
-  planCardActive: { borderColor: Colors.brandBdr, backgroundColor: Colors.brandDim },
-  popularBadge:   { position: 'absolute', top: -10, alignSelf: 'center', backgroundColor: Colors.brand, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 3 },
-  popularText:    { fontSize: 10, fontWeight: '700', color: Colors.white },
-  planName:       { fontSize: 16, fontWeight: '800', color: Colors.text },
-  planPrice:      { fontSize: 15, fontWeight: '800', color: Colors.brand, textAlign: 'right' },
-  planTrial:      { fontSize: 10, color: Colors.success, fontWeight: '700', textAlign: 'right' },
-  planFeature:    { fontSize: 12, color: Colors.textSec, marginTop: 5, lineHeight: 18 },
+  platformName:   { fontSize: 12, fontWeight: '600', color: colors.textSec, textAlign: 'center' },
+  planCard:       { backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 12, position: 'relative' },
+  planCardActive: { borderColor: colors.brandBdr, backgroundColor: colors.brandDim },
+  popularBadge:   { position: 'absolute', top: -10, alignSelf: 'center', backgroundColor: colors.brand, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 3 },
+  popularText:    { fontSize: 10, fontWeight: '700', color: colors.white },
+  planName:       { fontSize: 16, fontWeight: '800', color: colors.text },
+  planPrice:      { fontSize: 15, fontWeight: '800', color: colors.brand, textAlign: 'right' },
+  planTrial:      { fontSize: 10, color: colors.success, fontWeight: '700', textAlign: 'right' },
+  planFeature:    { fontSize: 12, color: colors.textSec, marginTop: 5, lineHeight: 18 },
 });

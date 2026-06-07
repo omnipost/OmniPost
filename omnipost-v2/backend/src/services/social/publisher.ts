@@ -4,7 +4,7 @@
  * Replace TODO sections with real API calls using credentials from .env
  */
 import axios from 'axios';
-import { logger } from '../config/logger';
+import { logger } from '../../config/logger';
 
 export type PublishResult = {
   platform:        string;

@@ -52,6 +52,26 @@ services:
     depends_on:
       - redis
 
+  # MongoDB
+  mongodb:
+    image: mongo:7-alpine
+    container_name: omnipost_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: omnipost_user
+      MONGO_INITDB_ROOT_PASSWORD: omnipost_dev_pass
+      MONGO_INITDB_DATABASE: omnipost_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:
+  mongodb_data:

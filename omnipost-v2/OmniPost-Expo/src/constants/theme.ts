@@ -1,5 +1,7 @@
 // src/constants/theme.ts
-export const Colors = {
+import { useThemeStore } from '../store/themeStore';
+
+export const DarkColors = {
   // Backgrounds
   bg0:       '#06090F',
   bg1:       '#0B1220',
@@ -35,6 +37,62 @@ export const Colors = {
   white: '#FFFFFF',
   black: '#000000',
 };
+
+export const LightColors = {
+  // Backgrounds
+  bg0:       '#F8FAFC',
+  bg1:       '#FFFFFF',
+  bg2:       '#F1F5F9',
+  bg3:       '#E2E8F0',
+
+  // Borders
+  border:    '#E2E8F0',
+  borderHi:  '#CBD5E1',
+
+  // Brand
+  brand:     '#4F46E5',
+  brandDim:  'rgba(79,70,229,0.08)',
+  brandBdr:  'rgba(79,70,229,0.2)',
+
+  // Accent
+  cyan:      '#0891B2',
+  cyanDim:   'rgba(8,145,178,0.08)',
+
+  // Text
+  text:      '#0F172A',
+  textSec:   '#475569',
+  textMuted: '#64748B',
+
+  // Status
+  success:    '#059669',
+  successDim: 'rgba(5,150,105,0.08)',
+  warning:    '#D97706',
+  warningDim: 'rgba(217,119,6,0.08)',
+  danger:     '#E11D48',
+  dangerDim:  'rgba(225,29,72,0.08)',
+
+  white: '#FFFFFF',
+  black: '#000000',
+};
+
+export const Colors = new Proxy({}, {
+  get(target, prop) {
+    try {
+      const isDarkMode = useThemeStore.getState().isDarkMode;
+      const activeColors = isDarkMode ? DarkColors : LightColors;
+      return activeColors[prop as keyof typeof DarkColors];
+    } catch (e) {
+      return DarkColors[prop as keyof typeof DarkColors];
+    }
+  }
+}) as typeof DarkColors;
+
+export function useTheme() {
+  const isDarkMode = useThemeStore((state) => state.isDarkMode);
+  const toggleTheme = useThemeStore((state) => state.toggleTheme);
+  const colors = isDarkMode ? DarkColors : LightColors;
+  return { isDarkMode, colors, toggleTheme };
+}
 
 export const PlatformColors: Record<string, string> = {
   instagram: '#E1306C',

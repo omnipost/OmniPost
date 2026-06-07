@@ -5,7 +5,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../store/authStore';
-import { Colors } from '../constants/theme';
+import { Colors, useTheme } from '../constants/theme';
 
 // Auth screens
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -34,12 +34,13 @@ const TAB_ICONS: Record<string, string> = {
 };
 
 function TabBar({ state, descriptors, navigation }: any) {
+  const { colors } = useTheme();
   return (
     <View style={{
       flexDirection: 'row',
-      backgroundColor: Colors.bg1,
+      backgroundColor: colors.bg1,
       borderTopWidth: 1,
-      borderTopColor: Colors.border,
+      borderTopColor: colors.border,
       paddingBottom: Platform.OS === 'ios' ? 24 : 8,
       paddingTop: 8,
       paddingHorizontal: 8,
@@ -60,15 +61,15 @@ function TabBar({ state, descriptors, navigation }: any) {
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <View style={{
                 width: 50, height: 50, borderRadius: 25,
-                backgroundColor: Colors.brand,
+                backgroundColor: colors.brand,
                 alignItems: 'center', justifyContent: 'center',
                 marginTop: -20,
-                shadowColor: Colors.brand, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+                shadowColor: colors.brand, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
                 elevation: 8,
               }}>
                 <Text style={{ fontSize: 22 }}>✏️</Text>
               </View>
-              <Text style={{ fontSize: 10, color: isFocused ? Colors.brand : Colors.textMuted, marginTop: 4, fontWeight: '600' }}>Compose</Text>
+              <Text style={{ fontSize: 10, color: isFocused ? colors.brand : colors.textMuted, marginTop: 4, fontWeight: '600' }}>Compose</Text>
             </TouchableOpacity>
           );
         }
@@ -77,11 +78,11 @@ function TabBar({ state, descriptors, navigation }: any) {
           <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.8}
             style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
             <Text style={{ fontSize: 20, opacity: isFocused ? 1 : 0.5 }}>{TAB_ICONS[route.name]}</Text>
-            <Text style={{ fontSize: 10, color: isFocused ? Colors.brand : Colors.textMuted, fontWeight: isFocused ? '700' : '500' }}>
+            <Text style={{ fontSize: 10, color: isFocused ? colors.brand : colors.textMuted, fontWeight: isFocused ? '700' : '500' }}>
               {route.name}
             </Text>
             {isFocused && (
-              <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.brand, position: 'absolute', bottom: -2 }} />
+              <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: colors.brand, position: 'absolute', bottom: -2 }} />
             )}
           </TouchableOpacity>
         );
@@ -103,22 +104,54 @@ function MainTabs() {
   );
 }
 
+import SplashScreen from '../screens/auth/SplashScreen';
+
 export default function AppNavigator() {
   const { isAuthenticated } = useAuthStore();
+  const [showSplash, setShowSplash] = React.useState(true);
+  const { isDarkMode, toggleTheme, colors } = useTheme();
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {!isAuthenticated ? (
-          <>
-            <Stack.Screen name="Login"      component={LoginScreen}      />
-            <Stack.Screen name="Register"   component={RegisterScreen}   />
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          </>
-        ) : (
-          <Stack.Screen name="Main" component={MainTabs} />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <View style={{ flex: 1, backgroundColor: colors.bg0 }}>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+          {!isAuthenticated ? (
+            <>
+              <Stack.Screen name="Login"      component={LoginScreen}      />
+              <Stack.Screen name="Register"   component={RegisterScreen}   />
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            </>
+          ) : (
+            <Stack.Screen name="Main" component={MainTabs} />
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+
+      {/* Floating Theme Toggle Icon at top right */}
+      <TouchableOpacity
+        onPress={toggleTheme}
+        activeOpacity={0.7}
+        style={{
+          position: 'absolute',
+          top: Platform.OS === 'ios' ? 44 : 32,
+          right: 16,
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
+          borderWidth: 1,
+          borderColor: isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+        }}
+      >
+        <Text style={{ fontSize: 16 }}>{isDarkMode ? '☀️' : '🌙'}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }

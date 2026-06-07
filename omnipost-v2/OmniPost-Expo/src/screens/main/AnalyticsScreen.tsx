@@ -1,7 +1,7 @@
 // src/screens/main/AnalyticsScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Colors, Spacing } from '../../constants/theme';
+import { Colors, Spacing, useTheme } from '../../constants/theme';
 import { Card, StatCard, SectionTitle, Badge, PlatformIcon } from '../../components/UI';
 import { MOCK_ANALYTICS, MOCK_POSTS } from '../../services/mockData';
 import { PLATFORMS } from '../../constants/platforms';
@@ -15,6 +15,8 @@ function fmtN(n: number): string {
 }
 
 export default function AnalyticsScreen() {
+  const { colors } = useTheme();
+  const s = React.useMemo(() => getStyles(colors), [colors]);
   const [range, setRange] = useState('30 days');
   const totalLikes    = MOCK_ANALYTICS.platforms.reduce((s, p) => s + p.likes, 0);
   const totalComments = MOCK_ANALYTICS.platforms.reduce((s, p) => s + p.comments, 0);
@@ -42,9 +44,9 @@ export default function AnalyticsScreen() {
         <SectionTitle title="Engagement Breakdown" />
         <View style={s.engRow}>
           {[
-            { label: 'Likes',    value: fmtN(totalLikes),    color: Colors.danger,  emoji: '❤️' },
-            { label: 'Comments', value: fmtN(totalComments), color: Colors.brand,   emoji: '💬' },
-            { label: 'Shares',   value: fmtN(totalShares),   color: Colors.success, emoji: '↗️' },
+            { label: 'Likes',    value: fmtN(totalLikes),    color: colors.danger,  emoji: '❤️' },
+            { label: 'Comments', value: fmtN(totalComments), color: colors.brand,   emoji: '💬' },
+            { label: 'Shares',   value: fmtN(totalShares),   color: colors.success, emoji: '↗️' },
           ].map(item => (
             <View key={item.label} style={s.engCard}>
               <Text style={s.engEmoji}>{item.emoji}</Text>
@@ -61,7 +63,7 @@ export default function AnalyticsScreen() {
           const pl = PLATFORMS[p.platform as keyof typeof PLATFORMS];
           const maxR = Math.max(...MOCK_ANALYTICS.platforms.map(x => x.reach));
           const pct = (p.reach / maxR) * 100;
-          const engColor = p.engagementRate >= 7 ? Colors.success : p.engagementRate >= 5 ? Colors.warning : Colors.textSec;
+          const engColor = p.engagementRate >= 7 ? colors.success : p.engagementRate >= 5 ? colors.warning : colors.textSec;
           return (
             <View key={p.platform} style={[s.platRow, i < MOCK_ANALYTICS.platforms.length - 1 && s.platRowBorder]}>
               <PlatformIcon platformId={p.platform} size={30} />
@@ -75,7 +77,7 @@ export default function AnalyticsScreen() {
                   <Text style={s.statItem}>👁️ {fmtN(p.reach)}</Text>
                   <Text style={s.statItem}>❤️ {fmtN(p.likes)}</Text>
                   <Text style={s.statItem}>💬 {fmtN(p.comments)}</Text>
-                  <Text style={[s.statItem, { color: Colors.success }]}>+{fmtN(p.followersGrowth)}</Text>
+                  <Text style={[s.statItem, { color: colors.success }]}>+{fmtN(p.followersGrowth)}</Text>
                 </View>
               </View>
             </View>
@@ -136,40 +138,40 @@ export default function AnalyticsScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root:           { flex: 1, backgroundColor: Colors.bg0 },
+const getStyles = (colors: typeof Colors) => StyleSheet.create({
+  root:           { flex: 1, backgroundColor: colors.bg0 },
   content:        { padding: Spacing.lg, paddingTop: 8 },
   rangeRow:       { gap: 8, marginBottom: 16 },
-  rangeBtn:       { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  rangeBtnActive: { backgroundColor: Colors.brand, borderColor: Colors.brand },
-  rangeTxt:       { fontSize: 12, color: Colors.textSec, fontWeight: '600' },
-  rangeTxtActive: { color: Colors.white },
+  rangeBtn:       { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  rangeBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  rangeTxt:       { fontSize: 12, color: colors.textSec, fontWeight: '600' },
+  rangeTxtActive: { color: colors.white },
   statsGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   engRow:         { flexDirection: 'row', gap: 10 },
-  engCard:        { flex: 1, backgroundColor: Colors.bg3, borderRadius: 12, padding: 14, alignItems: 'center', gap: 4 },
+  engCard:        { flex: 1, backgroundColor: colors.bg3, borderRadius: 12, padding: 14, alignItems: 'center', gap: 4 },
   engEmoji:       { fontSize: 22 },
   engValue:       { fontSize: 18, fontWeight: '800' },
-  engLabel:       { fontSize: 11, color: Colors.textMuted },
+  engLabel:       { fontSize: 11, color: colors.textMuted },
   platRow:        { paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
-  platRowBorder:  { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  platRowBorder:  { borderBottomWidth: 1, borderBottomColor: colors.border },
   platMeta:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  platName:       { fontSize: 13, fontWeight: '700', color: Colors.text },
+  platName:       { fontSize: 13, fontWeight: '700', color: colors.text },
   engRate:        { fontSize: 13, fontWeight: '700' },
-  reachBar:       { height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
+  reachBar:       { height: 5, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
   reachFill:      { height: '100%', borderRadius: 3 },
   statsRow:       { flexDirection: 'row', gap: 10 },
-  statItem:       { fontSize: 11, color: Colors.textMuted },
-  postText:       { fontSize: 13, color: Colors.textSec, lineHeight: 20, marginBottom: 10 },
+  statItem:       { fontSize: 11, color: colors.textMuted },
+  postText:       { fontSize: 13, color: colors.textSec, lineHeight: 20, marginBottom: 10 },
   postPlatforms:  { flexDirection: 'row', gap: 6, marginBottom: 12 },
   postMetrics:    { flexDirection: 'row', gap: 16, alignItems: 'center' },
   metric:         { alignItems: 'center' },
-  metricVal:      { fontSize: 16, fontWeight: '800', color: Colors.text },
-  metricLbl:      { fontSize: 10, color: Colors.textMuted },
-  bestTimeRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  bestDay:        { flex: 1, fontSize: 13, color: Colors.textSec, fontWeight: '500' },
+  metricVal:      { fontSize: 16, fontWeight: '800', color: colors.text },
+  metricLbl:      { fontSize: 10, color: colors.textMuted },
+  bestTimeRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  bestDay:        { flex: 1, fontSize: 13, color: colors.textSec, fontWeight: '500' },
   hashRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
-  hashRowBorder:  { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  hashRank:       { width: 20, fontSize: 12, color: Colors.textMuted, textAlign: 'center' },
-  hashTag:        { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.text },
-  hashStats:      { fontSize: 11, color: Colors.textMuted },
+  hashRowBorder:  { borderBottomWidth: 1, borderBottomColor: colors.border },
+  hashRank:       { width: 20, fontSize: 12, color: colors.textMuted, textAlign: 'center' },
+  hashTag:        { flex: 1, fontSize: 13, fontWeight: '600', color: colors.text },
+  hashStats:      { fontSize: 11, color: colors.textMuted },
 });

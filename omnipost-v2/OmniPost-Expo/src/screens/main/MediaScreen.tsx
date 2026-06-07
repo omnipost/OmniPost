@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Colors, Spacing } from '../../constants/theme';
+import { Colors, Spacing, useTheme } from '../../constants/theme';
 import { Card, Button, Badge, EmptyState } from '../../components/UI';
 import { MOCK_MEDIA } from '../../services/mockData';
 import { fmtBytes } from '../../utils';
@@ -25,6 +25,8 @@ function fmtSize(bytes: number): string {
 }
 
 export default function MediaScreen() {
+  const { colors } = useTheme();
+  const s = React.useMemo(() => getStyles(colors), [colors]);
   const [filter, setFilter]     = useState<FilterType>('all');
   const [view, setView]         = useState<'grid' | 'list'>('grid');
   const [selected, setSelected] = useState<string[]>([]);
@@ -165,51 +167,51 @@ export default function MediaScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root:            { flex: 1, backgroundColor: Colors.bg0 },
+const getStyles = (colors: typeof Colors) => StyleSheet.create({
+  root:            { flex: 1, backgroundColor: colors.bg0 },
   content:         { padding: Spacing.lg, paddingTop: 8 },
   header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingBottom: 8 },
-  headerTitle:     { fontSize: 13, color: Colors.textSec },
+  headerTitle:     { fontSize: 13, color: colors.textSec },
   headerActions:   { flexDirection: 'row', gap: 8 },
-  deleteBtn:       { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.dangerDim, borderRadius: 10, borderWidth: 1, borderColor: Colors.danger + '44' },
-  deleteBtnText:   { fontSize: 12, color: Colors.danger, fontWeight: '700' },
-  uploadBtn:       { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.brand, borderRadius: 10 },
-  uploadBtnText:   { fontSize: 12, color: Colors.white, fontWeight: '700' },
+  deleteBtn:       { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.dangerDim, borderRadius: 10, borderWidth: 1, borderColor: colors.danger + '44' },
+  deleteBtnText:   { fontSize: 12, color: colors.danger, fontWeight: '700' },
+  uploadBtn:       { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.brand, borderRadius: 10 },
+  uploadBtnText:   { fontSize: 12, color: colors.white, fontWeight: '700' },
   storageRow:      { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  storageLabel:    { fontSize: 12, color: Colors.textSec },
-  storageValue:    { fontSize: 12, color: Colors.textSec },
-  storageBar:      { height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
-  storageFill:     { height: '100%', backgroundColor: Colors.brand, borderRadius: 3 },
-  storagePlan:     { fontSize: 11, color: Colors.textMuted },
+  storageLabel:    { fontSize: 12, color: colors.textSec },
+  storageValue:    { fontSize: 12, color: colors.textSec },
+  storageBar:      { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
+  storageFill:     { height: '100%', backgroundColor: colors.brand, borderRadius: 3 },
+  storagePlan:     { fontSize: 11, color: colors.textMuted },
   toolbar:         { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 10 },
   filterRow:       { gap: 7, flex: 1 },
-  filterBtn:       { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: Colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  filterBtnActive: { backgroundColor: Colors.brand, borderColor: Colors.brand },
-  filterText:      { fontSize: 12, color: Colors.textSec, fontWeight: '600' },
-  filterTextActive:{ color: Colors.white },
-  viewToggle:      { flexDirection: 'row', backgroundColor: Colors.bg2, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 3, gap: 2 },
+  filterBtn:       { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  filterBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  filterText:      { fontSize: 12, color: colors.textSec, fontWeight: '600' },
+  filterTextActive:{ color: colors.white },
+  viewToggle:      { flexDirection: 'row', backgroundColor: colors.bg2, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 3, gap: 2 },
   viewBtn:         { padding: 6, borderRadius: 7 },
-  viewBtnActive:   { backgroundColor: Colors.bg3 },
-  viewIcon:        { fontSize: 16, color: Colors.textMuted },
-  viewIconActive:  { color: Colors.text },
-  dropZone:        { borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.border, borderRadius: 16, padding: 28, alignItems: 'center', marginBottom: 16 },
+  viewBtnActive:   { backgroundColor: colors.bg3 },
+  viewIcon:        { fontSize: 16, color: colors.textMuted },
+  viewIconActive:  { color: colors.text },
+  dropZone:        { borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 16, padding: 28, alignItems: 'center', marginBottom: 16 },
   dropIcon:        { fontSize: 30, marginBottom: 8 },
-  dropTitle:       { fontSize: 14, fontWeight: '600', color: Colors.textSec, marginBottom: 4 },
-  dropSub:         { fontSize: 12, color: Colors.textMuted },
+  dropTitle:       { fontSize: 14, fontWeight: '600', color: colors.textSec, marginBottom: 4 },
+  dropSub:         { fontSize: 12, color: colors.textMuted },
   gridRow:         { gap: 6, marginBottom: 6 },
-  gridItem:        { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, maxWidth: '32%' },
-  gridItemSelected:{ borderColor: Colors.brand, borderWidth: 2 },
+  gridItem:        { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, maxWidth: '32%' },
+  gridItemSelected:{ borderColor: colors.brand, borderWidth: 2 },
   gridThumb:       { width: '100%', height: '100%' },
   videoOverlay:    { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center', gap: 4 },
-  videoIcon:       { fontSize: 18, color: Colors.white },
-  videoDuration:   { fontSize: 10, color: Colors.white, fontWeight: '700', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
-  checkOverlay:    { position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center' },
-  checkIcon:       { fontSize: 12, color: Colors.white, fontWeight: '800' },
+  videoIcon:       { fontSize: 18, color: colors.white },
+  videoDuration:   { fontSize: 10, color: colors.white, fontWeight: '700', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
+  checkOverlay:    { position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
+  checkIcon:       { fontSize: 12, color: colors.white, fontWeight: '800' },
   listRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  listRowBorder:   { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  listRowBorder:   { borderBottomWidth: 1, borderBottomColor: colors.border },
   listThumb:       { width: 48, height: 40, borderRadius: 8 },
   listMeta:        { flex: 1 },
-  listName:        { fontSize: 13, fontWeight: '600', color: Colors.text, marginBottom: 2 },
-  listSub:         { fontSize: 11, color: Colors.textMuted },
-  listDim:         { fontSize: 10, color: Colors.textMuted },
+  listName:        { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  listSub:         { fontSize: 11, color: colors.textMuted },
+  listDim:         { fontSize: 10, color: colors.textMuted },
 });

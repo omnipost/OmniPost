@@ -1,7 +1,7 @@
 // src/screens/main/ProfileScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { Colors, Spacing } from '../../constants/theme';
+import { Spacing, useTheme, Colors } from '../../constants/theme';
 import { Card, Button, Badge, PlatformIcon, InputField, Toggle, Divider } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
 import { MOCK_ACCOUNTS } from '../../services/mockData';
@@ -10,19 +10,21 @@ import Toast from 'react-native-toast-message';
 type SettingsTab = 'profile' | 'accounts' | 'notifications' | 'security' | 'billing';
 
 export default function ProfileScreen({ navigation }: any) {
-  const [tab, setTab]       = useState<SettingsTab>('profile');
-  const { user, logout }    = useAuthStore();
-  const [name, setName]     = useState(user?.name ?? '');
-  const [bio, setBio]       = useState(user?.bio  ?? '');
+  const { colors } = useTheme();
+  const s = React.useMemo(() => getStyles(colors), [colors]);
+  const [tab, setTab] = useState<SettingsTab>('profile');
+  const { user, logout } = useAuthStore();
+  const [name, setName] = useState(user?.name ?? '');
+  const [bio, setBio] = useState(user?.bio ?? '');
   const [notifs, setNotifs] = useState({ success: true, failed: true, tokenExpiry: true, scheduled: true, weekly: false });
   const [saving, setSaving] = useState(false);
 
   const TABS: { id: SettingsTab; label: string; emoji: string }[] = [
-    { id: 'profile',       label: 'Profile',       emoji: '👤' },
-    { id: 'accounts',      label: 'Accounts',      emoji: '🔗' },
+    { id: 'profile', label: 'Profile', emoji: '👤' },
+    { id: 'accounts', label: 'Accounts', emoji: '🔗' },
     { id: 'notifications', label: 'Notifications', emoji: '🔔' },
-    { id: 'security',      label: 'Security',      emoji: '🔒' },
-    { id: 'billing',       label: 'Billing',       emoji: '💳' },
+    { id: 'security', label: 'Security', emoji: '🔒' },
+    { id: 'billing', label: 'Billing', emoji: '💳' },
   ];
 
   async function saveProfile() {
@@ -100,7 +102,7 @@ export default function ProfileScreen({ navigation }: any) {
             <Text style={s.sectionTitle}>Add Platform</Text>
             <Text style={s.sectionSub}>Available platforms</Text>
             <View style={s.platformGrid}>
-              {['instagram','twitter','facebook','youtube','linkedin','threads'].map(pid => {
+              {['instagram', 'twitter', 'facebook', 'youtube', 'linkedin', 'threads'].map(pid => {
                 const already = MOCK_ACCOUNTS.some(a => a.platform === pid);
                 return (
                   <TouchableOpacity key={pid}
@@ -108,7 +110,7 @@ export default function ProfileScreen({ navigation }: any) {
                     style={[s.platformCard, already && s.platformCardConnected]}>
                     <PlatformIcon platformId={pid} size={30} />
                     <Text style={s.platformName}>{pid.charAt(0).toUpperCase() + pid.slice(1)}</Text>
-                    <Text style={[s.platformStatus, { color: already ? Colors.success : Colors.textMuted }]}>{already ? '✓' : 'Connect'}</Text>
+                    <Text style={[s.platformStatus, { color: already ? colors.success : colors.textMuted }]}>{already ? '✓' : 'Connect'}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -121,11 +123,11 @@ export default function ProfileScreen({ navigation }: any) {
         <Card>
           <Text style={s.sectionTitle}>Notification Preferences</Text>
           {[
-            { key: 'success',     label: 'Post published',    desc: 'When all platforms succeed' },
-            { key: 'failed',      label: 'Post failed',       desc: 'When publishing fails' },
-            { key: 'tokenExpiry', label: 'Token expiry',      desc: 'Before platform token expires' },
-            { key: 'scheduled',   label: 'Scheduled reminder',desc: '15 min before scheduled posts' },
-            { key: 'weekly',      label: 'Weekly report',     desc: 'Analytics summary every Monday' },
+            { key: 'success', label: 'Post published', desc: 'When all platforms succeed' },
+            { key: 'failed', label: 'Post failed', desc: 'When publishing fails' },
+            { key: 'tokenExpiry', label: 'Token expiry', desc: 'Before platform token expires' },
+            { key: 'scheduled', label: 'Scheduled reminder', desc: '15 min before scheduled posts' },
+            { key: 'weekly', label: 'Weekly report', desc: 'Analytics summary every Monday' },
           ].map(item => (
             <View key={item.key} style={s.notifRow}>
               <View style={{ flex: 1 }}>
@@ -163,7 +165,7 @@ export default function ProfileScreen({ navigation }: any) {
 
       {tab === 'billing' && (
         <View>
-          <Card style={{ marginBottom: 14, borderColor: Colors.brandBdr, backgroundColor: Colors.brandDim }}>
+          <Card style={{ marginBottom: 14, borderColor: colors.brandBdr, backgroundColor: colors.brandDim }}>
             <Text style={s.sectionTitle}>Current Plan</Text>
             <View style={s.planHeader}>
               <Text style={s.planName}>Creator Plan</Text>
@@ -206,46 +208,46 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-const s = StyleSheet.create({
-  root:                 { flex: 1, backgroundColor: Colors.bg0 },
-  content:              { padding: Spacing.lg },
-  userHeader:           { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 16 },
-  avatar:               { width: 52, height: 52, borderRadius: 14, backgroundColor: Colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
-  avatarText:           { fontSize: 22, fontWeight: '900', color: Colors.brand },
-  userName:             { fontSize: 16, fontWeight: '800', color: Colors.text },
-  userEmail:            { fontSize: 12, color: Colors.textMuted },
-  tabRow:               { gap: 8, marginBottom: 16 },
-  tabBtn:               { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: Colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  tabBtnActive:         { backgroundColor: Colors.brand, borderColor: Colors.brand },
-  tabEmoji:             { fontSize: 13 },
-  tabLabel:             { fontSize: 12, color: Colors.textSec, fontWeight: '600' },
-  tabLabelActive:       { color: Colors.white },
-  sectionTitle:         { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 14 },
-  sectionSub:           { fontSize: 12, color: Colors.textMuted, marginBottom: 10, marginTop: -8 },
-  accountRow:           { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  accountName:          { fontSize: 13, fontWeight: '700', color: Colors.text },
-  accountSub:           { fontSize: 11, color: Colors.textMuted },
-  reconnectBtn:         { backgroundColor: Colors.brand, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7 },
-  reconnectText:        { fontSize: 12, fontWeight: '700', color: Colors.white },
-  platformGrid:         { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  platformCard:         { width: '30%', alignItems: 'center', padding: 12, backgroundColor: Colors.bg3, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, gap: 5 },
-  platformCardConnected:{ borderColor: Colors.success + '44', backgroundColor: Colors.successDim },
-  platformName:         { fontSize: 11, fontWeight: '600', color: Colors.text },
-  platformStatus:       { fontSize: 11, fontWeight: '700' },
-  notifRow:             { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  notifLabel:           { fontSize: 13, fontWeight: '600', color: Colors.text },
-  notifDesc:            { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
-  mfaRow:               { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-  planHeader:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  planName:             { fontSize: 18, fontWeight: '900', color: Colors.text },
-  planPrice:            { fontSize: 22, fontWeight: '900', color: Colors.brand },
-  planPer:              { fontSize: 13, color: Colors.textMuted, fontWeight: '400' },
-  planRenew:            { fontSize: 12, color: Colors.textMuted },
-  paymentRow:           { paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  paymentItem:          { fontSize: 13, color: Colors.textSec },
-  paymentNote:          { fontSize: 11, color: Colors.textMuted, marginTop: 10 },
-  invoiceRow:           { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  invoiceDate:          { flex: 1, fontSize: 13, color: Colors.textSec },
-  invoiceAmount:        { fontSize: 13, fontWeight: '700', color: Colors.text, marginRight: 10 },
-  version:              { textAlign: 'center', fontSize: 11, color: Colors.textMuted, marginTop: 16 },
+const getStyles = (colors: typeof Colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg0 },
+  content: { padding: Spacing.lg },
+  userHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 },
+  avatar: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 22, fontWeight: '900', color: colors.brand },
+  userName: { fontSize: 16, fontWeight: '800', color: colors.text },
+  userEmail: { fontSize: 12, color: colors.textMuted },
+  tabRow: { gap: 8, marginBottom: 16 },
+  tabBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  tabBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tabEmoji: { fontSize: 13 },
+  tabLabel: { fontSize: 12, color: colors.textSec, fontWeight: '600' },
+  tabLabelActive: { color: colors.white },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 14 },
+  sectionSub: { fontSize: 12, color: colors.textMuted, marginBottom: 10, marginTop: -8 },
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  accountName: { fontSize: 13, fontWeight: '700', color: colors.text },
+  accountSub: { fontSize: 11, color: colors.textMuted },
+  reconnectBtn: { backgroundColor: colors.brand, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7 },
+  reconnectText: { fontSize: 12, fontWeight: '700', color: colors.white },
+  platformGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  platformCard: { width: '30%', alignItems: 'center', padding: 12, backgroundColor: colors.bg3, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 5 },
+  platformCardConnected: { borderColor: colors.success + '44', backgroundColor: colors.successDim },
+  platformName: { fontSize: 11, fontWeight: '600', color: colors.text },
+  platformStatus: { fontSize: 11, fontWeight: '700' },
+  notifRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  notifLabel: { fontSize: 13, fontWeight: '600', color: colors.text },
+  notifDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  mfaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  planName: { fontSize: 18, fontWeight: '900', color: colors.text },
+  planPrice: { fontSize: 22, fontWeight: '900', color: colors.brand },
+  planPer: { fontSize: 13, color: colors.textMuted, fontWeight: '400' },
+  planRenew: { fontSize: 12, color: colors.textMuted },
+  paymentRow: { paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: colors.border },
+  paymentItem: { fontSize: 13, color: colors.textSec },
+  paymentNote: { fontSize: 11, color: colors.textMuted, marginTop: 10 },
+  invoiceRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  invoiceDate: { flex: 1, fontSize: 13, color: colors.textSec },
+  invoiceAmount: { fontSize: 13, fontWeight: '700', color: colors.text, marginRight: 10 },
+  version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: 16 },
 });

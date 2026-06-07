@@ -2,16 +2,29 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
-import { db } from '../config/database';
+import { ObjectId } from 'mongodb';
+import { getDb } from '../config/database';
 import { logger } from '../config/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_replace_in_prod';
+const OTP_EXPIRY_MS = 5 * 60 * 1000;
 
-/* ── Helpers ──────────────────────────────────────────────── */
+interface UserDoc {
+  _id?: any;
+  name: string;
+  email: string;
+  mobile?: string;
+  passwordHash?: string;
+  plan: string;
+  isVerified: boolean;
+  createdAt: Date;
+}
+
+const otpStore = new Map<string, { hash: string; expiresAt: number }>();
+
 function signToken(userId: string): string {
   return jwt.sign({ userId }, JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '3d',
   } as jwt.SignOptions);
 }
 
@@ -23,6 +36,21 @@ function fail(res: Response, status: number, error: string) {
   return res.status(status).json({ success: false, error });
 }
 
+function formatUser(user: UserDoc & { _id: any }) {
+  return {
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    mobile: user.mobile || null,
+    plan: user.plan,
+    isVerified: user.isVerified,
+  };
+}
+
+function getUsersCollection() {
+  return getDb().collection<UserDoc>('users');
+}
+
 /* ── Register ─────────────────────────────────────────────── */
 export async function register(req: Request, res: Response) {
   try {
@@ -31,31 +59,30 @@ export async function register(req: Request, res: Response) {
     if (!name || !email || !password)
       return fail(res, 400, 'name, email and password are required');
 
-    // TODO: check DB for existing user
-    // const existing = await db.query('SELECT id FROM users WHERE email=$1', [email]);
-    // if (existing.rows.length) return fail(res, 409, 'Email already registered');
+    const users = getUsersCollection();
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const existing = await users.findOne({ email: normalizedEmail });
+    if (existing) return fail(res, 409, 'Email already registered');
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const userId = uuidv4();
+    const createdAt = new Date();
+    const result = await users.insertOne({
+      name: name.trim(),
+      email: normalizedEmail,
+      mobile: mobile ? String(mobile).trim() : undefined,
+      passwordHash,
+      plan: 'free',
+      isVerified: false,
+      createdAt,
+    });
 
-    // TODO: INSERT into users table
-    // await db.query(
-    //   'INSERT INTO users (id,name,email,mobile,password_hash,plan) VALUES ($1,$2,$3,$4,$5,$6)',
-    //   [userId, name, email, mobile, passwordHash, 'free']
-    // );
+    const user = formatUser({ _id: result.insertedId, name: name.trim(), email: normalizedEmail, mobile: mobile ? String(mobile).trim() : undefined, plan: 'free', isVerified: false, createdAt });
+    const token = signToken(user.id);
 
-    const token = signToken(userId);
-
-    // TODO: Send welcome email via SES
-
-    logger.info(`New user registered: ${email}`);
-
-    return ok(res, {
-      user: { id: userId, name, email, mobile, plan: 'free', isVerified: false },
-      accessToken: token,
-    }, 'Account created successfully');
-
-  } catch (err) {
+    logger.info(`New user registered: ${normalizedEmail}`);
+    return ok(res, { user, accessToken: token }, 'Account created successfully');
+  } catch (err: unknown) {
     logger.error('Register error:', err);
     return fail(res, 500, 'Registration failed');
   }
@@ -69,21 +96,19 @@ export async function login(req: Request, res: Response) {
     if (!email || !password)
       return fail(res, 400, 'email and password are required');
 
-    // TODO: fetch user from DB
-    // const result = await db.query('SELECT * FROM users WHERE email=$1', [email]);
-    // if (!result.rows.length) return fail(res, 401, 'Invalid credentials');
-    // const user = result.rows[0];
-    // const valid = await bcrypt.compare(password, user.password_hash);
-    // if (!valid) return fail(res, 401, 'Invalid credentials');
+    const users = getUsersCollection();
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await users.findOne({ email: normalizedEmail });
+    if (!user || !user.passwordHash)
+      return fail(res, 401, 'Invalid credentials');
 
-    // Mock response for development
-    const mockUser = { id: 'usr_01', name: 'Priya Sharma', email, plan: 'creator', isVerified: true };
-    const token = signToken(mockUser.id);
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) return fail(res, 401, 'Invalid credentials');
 
-    logger.info(`User logged in: ${email}`);
-    return ok(res, { user: mockUser, accessToken: token });
-
-  } catch (err) {
+    const token = signToken(user._id.toString());
+    logger.info(`User logged in: ${normalizedEmail}`);
+    return ok(res, { user: formatUser({ ...user, _id: user._id }), accessToken: token });
+  } catch (err: unknown) {
     logger.error('Login error:', err);
     return fail(res, 500, 'Login failed');
   }
@@ -96,17 +121,12 @@ export async function sendOtp(req: Request, res: Response) {
     if (!mobile) return fail(res, 400, 'mobile number is required');
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hash = await bcrypt.hash(otp, 10);
+    otpStore.set(String(mobile).trim(), { hash, expiresAt: Date.now() + OTP_EXPIRY_MS });
 
-    // TODO: store OTP in Redis with 5min expiry
-    // await redis.setEx(`otp:${mobile}`, 300, await bcrypt.hash(otp, 10));
-
-    // TODO: send via MSG91
-    // await smsService.send(mobile, `Your OmniPost OTP is ${otp}. Valid for 5 minutes.`);
-
-    logger.info(`OTP sent to ${mobile} (dev: ${otp})`);
-
+    logger.info(`OTP sent to ${mobile} (dev OTP: ${otp})`);
     return ok(res, { message: 'OTP sent successfully' });
-  } catch (err) {
+  } catch (err: unknown) {
     logger.error('sendOtp error:', err);
     return fail(res, 500, 'Failed to send OTP');
   }
@@ -118,22 +138,36 @@ export async function verifyOtp(req: Request, res: Response) {
     const { mobile, otp } = req.body;
     if (!mobile || !otp) return fail(res, 400, 'mobile and otp are required');
 
-    // TODO: retrieve from Redis and verify
-    // const stored = await redis.get(`otp:${mobile}`);
-    // if (!stored) return fail(res, 400, 'OTP expired');
-    // const valid = await bcrypt.compare(otp, stored);
-    // if (!valid) return fail(res, 400, 'Invalid OTP');
-    // await redis.del(`otp:${mobile}`);
+    const entry = otpStore.get(String(mobile).trim());
+    if (!entry || entry.expiresAt < Date.now()) {
+      otpStore.delete(String(mobile).trim());
+      return fail(res, 400, 'OTP expired');
+    }
 
-    // TODO: find or create user
-    const userId = uuidv4();
-    const token  = signToken(userId);
+    const valid = await bcrypt.compare(otp, entry.hash);
+    if (!valid) return fail(res, 400, 'Invalid OTP');
+    otpStore.delete(String(mobile).trim());
 
-    return ok(res, {
-      user: { id: userId, mobile, plan: 'free', isVerified: true },
-      accessToken: token,
-    });
-  } catch (err) {
+    const users = getUsersCollection();
+    const normalizedMobile = String(mobile).trim();
+    let user = await users.findOne({ mobile: normalizedMobile });
+
+    if (!user) {
+      const createdAt = new Date();
+      const result = await users.insertOne({
+        name: `User ${normalizedMobile.slice(-4)}`,
+        email: `${normalizedMobile}@omnipost.local`,
+        mobile: normalizedMobile,
+        plan: 'free',
+        isVerified: true,
+        createdAt,
+      });
+      user = { _id: result.insertedId, name: `User ${normalizedMobile.slice(-4)}`, email: `${normalizedMobile}@omnipost.local`, mobile: normalizedMobile, plan: 'free', isVerified: true, createdAt };
+    }
+
+    const token = signToken(user._id.toString());
+    return ok(res, { user: formatUser({ ...user, _id: user._id }), accessToken: token });
+  } catch (err: unknown) {
     logger.error('verifyOtp error:', err);
     return fail(res, 500, 'OTP verification failed');
   }
@@ -142,11 +176,16 @@ export async function verifyOtp(req: Request, res: Response) {
 /* ── Get current user ─────────────────────────────────────── */
 export async function getMe(req: Request, res: Response) {
   try {
-    // req.userId set by auth middleware
-    // const result = await db.query('SELECT id,name,email,mobile,plan,avatar,bio,is_verified,created_at FROM users WHERE id=$1', [(req as any).userId]);
-    // if (!result.rows.length) return fail(res, 404, 'User not found');
-    return ok(res, { id: (req as any).userId, name: 'Priya Sharma', plan: 'creator' });
-  } catch (err) {
+    const userId = (req as any).userId;
+    if (!userId) return fail(res, 401, 'Unauthorized');
+
+    const users = getUsersCollection();
+    const user = await users.findOne({ _id: new ObjectId(userId) });
+    if (!user) return fail(res, 404, 'User not found');
+
+    return ok(res, formatUser({ ...user, _id: user._id }));
+  } catch (err: unknown) {
+    logger.error('getMe error:', err);
     return fail(res, 500, 'Failed to fetch user');
   }
 }

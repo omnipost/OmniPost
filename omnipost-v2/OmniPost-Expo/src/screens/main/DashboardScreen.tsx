@@ -1,10 +1,10 @@
 // src/screens/main/DashboardScreen.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { useAuthStore } from '../../store/authStore';
-import { useUIStore }   from '../../store/uiStore';
-import { Card, StatCard, SectionTitle, Badge, PlatformIcon } from '../../components/UI';
-import { Colors, Spacing } from '../../constants/theme';
+import { useUIStore } from '../../store/uiStore';
+import { Card, StatCard, SectionTitle, Badge, PlatformIcon, Skeleton } from '../../components/UI';
+import { Spacing, Radius, useTheme, Colors } from '../../constants/theme';
 import { MOCK_ACCOUNTS, MOCK_POSTS, MOCK_ANALYTICS } from '../../services/mockData';
 import { PLATFORMS } from '../../constants/platforms';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -12,11 +12,93 @@ import { format, formatDistanceToNow } from 'date-fns';
 export default function DashboardScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const { openComposer } = useUIStore();
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => getStyles(colors), [colors]);
   const firstName = user?.name?.split(' ')[0] ?? 'Creator';
   const connected = MOCK_ACCOUNTS.filter(a => a.status === 'connected');
-  const expired   = MOCK_ACCOUNTS.filter(a => a.status === 'expired');
+  const expired = MOCK_ACCOUNTS.filter(a => a.status === 'expired');
   const scheduled = MOCK_POSTS.filter(p => p.status === 'scheduled');
   const published = MOCK_POSTS.filter(p => p.status === 'published');
+
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return (
+      <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Banner Skeleton */}
+        <View style={styles.banner}>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Skeleton width={180} height={18} borderRadius={6} />
+            <Skeleton width={240} height={12} borderRadius={4} />
+          </View>
+          <Skeleton width={96} height={36} borderRadius={11} />
+        </View>
+
+        {/* Channels Pills Skeleton */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} width={100} height={32} borderRadius={20} />
+          ))}
+        </View>
+
+        {/* Stats Grid Skeleton */}
+        <View style={styles.statsGrid}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View key={i} style={{ flex: 1, minWidth: '45%', backgroundColor: colors.bg2, borderRadius: Radius.lg, borderWidth: 1, borderColor: colors.border, padding: 16 }}>
+              <Skeleton width={80} height={10} borderRadius={3} style={{ marginBottom: 12 }} />
+              <Skeleton width={60} height={24} borderRadius={6} style={{ marginBottom: 8 }} />
+              <Skeleton width={110} height={10} borderRadius={3} />
+            </View>
+          ))}
+        </View>
+
+        {/* Reach Card Skeleton */}
+        <Card style={{ marginBottom: 16 }}>
+          <Skeleton width={120} height={16} borderRadius={4} style={{ marginBottom: 20 }} />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <View key={i} style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Skeleton width={20} height={20} borderRadius={6} />
+                  <Skeleton width={80} height={12} borderRadius={4} />
+                </View>
+                <Skeleton width={30} height={12} borderRadius={4} />
+              </View>
+              <Skeleton height={6} borderRadius={3} />
+            </View>
+          ))}
+        </Card>
+
+        {/* Recent Posts Section Skeleton */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Skeleton width={100} height={16} borderRadius={4} />
+          <Skeleton width={50} height={12} borderRadius={4} />
+        </View>
+
+        {Array.from({ length: 2 }).map((_, i) => (
+          <Card key={i} style={{ marginBottom: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Skeleton width={56} height={44} borderRadius={9} />
+              <View style={{ flex: 1, gap: 6 }}>
+                <Skeleton height={12} borderRadius={4} />
+                <Skeleton width="80%" height={12} borderRadius={4} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <Skeleton width={18} height={18} borderRadius={6} />
+                  <Skeleton width={18} height={18} borderRadius={6} />
+                  <Skeleton width={60} height={10} style={{ marginLeft: 'auto' }} />
+                </View>
+              </View>
+            </View>
+          </Card>
+        ))}
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -37,17 +119,17 @@ export default function DashboardScreen({ navigation }: any) {
         {MOCK_ACCOUNTS.map(acc => (
           <View key={acc.id} style={[styles.pill, acc.status === 'expired' && styles.pillExpired]}>
             <PlatformIcon platformId={acc.platform} size={18} />
-            <Text style={[styles.pillText, acc.status === 'expired' && { color: Colors.warning }]}>{acc.username}</Text>
-            <View style={[styles.pillDot, { backgroundColor: acc.status === 'connected' ? Colors.success : Colors.warning }]} />
+            <Text style={[styles.pillText, acc.status === 'expired' && { color: colors.warning }]}>{acc.username}</Text>
+            <View style={[styles.pillDot, { backgroundColor: acc.status === 'connected' ? colors.success : colors.warning }]} />
           </View>
         ))}
       </ScrollView>
 
       <View style={styles.statsGrid}>
         <StatCard label="Impressions" value="2.84M" delta={18} />
-        <StatCard label="Total Reach"  value="1.25M" delta={12} />
-        <StatCard label="Engagement"   value="89.4K" delta={24} />
-        <StatCard label="Eng. Rate"    value="7.16%" delta={3}  />
+        <StatCard label="Total Reach" value="1.25M" delta={12} />
+        <StatCard label="Engagement" value="89.4K" delta={24} />
+        <StatCard label="Eng. Rate" value="7.16%" delta={3} />
       </View>
 
       <Card style={{ marginBottom: 16 }}>
@@ -87,9 +169,9 @@ export default function DashboardScreen({ navigation }: any) {
               </View>
               {post.targets[0]?.likes !== undefined && (
                 <Text style={styles.postStats}>
-                  ❤️ {post.targets.reduce((s,t) => s + (t.likes||0), 0).toLocaleString('en-IN')}{'  '}
-                  💬 {post.targets.reduce((s,t) => s + (t.comments||0), 0).toLocaleString('en-IN')}{'  '}
-                  👁️ {post.targets.reduce((s,t) => s + (t.reach||0), 0).toLocaleString('en-IN')}
+                  ❤️ {post.targets.reduce((s, t) => s + (t.likes || 0), 0).toLocaleString('en-IN')}{'  '}
+                  💬 {post.targets.reduce((s, t) => s + (t.comments || 0), 0).toLocaleString('en-IN')}{'  '}
+                  👁️ {post.targets.reduce((s, t) => s + (t.reach || 0), 0).toLocaleString('en-IN')}
                 </Text>
               )}
             </View>
@@ -101,7 +183,7 @@ export default function DashboardScreen({ navigation }: any) {
         <>
           <SectionTitle title="Upcoming Scheduled" action="Calendar" onAction={() => navigation.navigate('Calendar')} />
           {scheduled.map(post => (
-            <Card key={post.id} style={{ marginBottom: 10, borderColor: Colors.cyan + '44', backgroundColor: Colors.cyanDim }}>
+            <Card key={post.id} style={{ marginBottom: 10, borderColor: colors.cyan + '44', backgroundColor: colors.cyanDim }}>
               <View style={styles.postRow}>
                 <View style={styles.scheduledDate}>
                   <Text style={styles.scheduledMonth}>
@@ -131,33 +213,33 @@ export default function DashboardScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: Colors.bg0 },
+const getStyles = (colors: typeof Colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg0 },
   content: { padding: Spacing.lg, paddingTop: 12 },
-  banner:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 14 },
-  bannerGreet: { fontSize: 15, fontWeight: '800', color: Colors.text, marginBottom: 4 },
-  bannerSub:   { fontSize: 12, color: Colors.textSec, lineHeight: 18 },
-  createBtn:   { backgroundColor: Colors.brand, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 9 },
-  createBtnText: { fontSize: 13, fontWeight: '700', color: Colors.white },
+  banner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 14 },
+  bannerGreet: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  bannerSub: { fontSize: 12, color: colors.textSec, lineHeight: 18 },
+  createBtn: { backgroundColor: colors.brand, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 9 },
+  createBtnText: { fontSize: 13, fontWeight: '700', color: colors.white },
   pillScroll: { marginBottom: 14 },
-  pill:       { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: Colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border },
-  pillExpired:{ borderColor: Colors.warning + '66', backgroundColor: Colors.warningDim },
-  pillText:   { fontSize: 11, color: Colors.textSec, fontWeight: '500' },
-  pillDot:    { width: 6, height: 6, borderRadius: 3 },
-  statsGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  reachRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
-  reachName:  { flex: 1, fontSize: 12, color: Colors.textSec },
-  reachVal:   { fontSize: 12, color: Colors.textMuted },
-  reachBar:   { height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
-  reachFill:  { height: '100%', borderRadius: 3 },
-  postRow:    { flexDirection: 'row', gap: 12 },
-  postThumb:  { width: 56, height: 44, borderRadius: 9 },
-  postText:   { fontSize: 12, color: Colors.textSec, lineHeight: 18, flex: 1 },
-  postMeta:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  postTime:   { fontSize: 10, color: Colors.textMuted, marginLeft: 'auto' },
-  postStats:  { fontSize: 11, color: Colors.textMuted, marginTop: 5 },
-  scheduledDate:  { width: 44, height: 52, borderRadius: 10, backgroundColor: Colors.cyanDim, borderWidth: 1, borderColor: Colors.cyan + '44', alignItems: 'center', justifyContent: 'center' },
-  scheduledMonth: { fontSize: 8, fontWeight: '700', color: Colors.cyan, textTransform: 'uppercase' },
-  scheduledDay:   { fontSize: 20, fontWeight: '900', color: Colors.cyan, lineHeight: 22 },
-  scheduledTime:  { fontSize: 8, color: Colors.cyan + 'AA' },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  pillExpired: { borderColor: colors.warning + '66', backgroundColor: colors.warningDim },
+  pillText: { fontSize: 11, color: colors.textSec, fontWeight: '500' },
+  pillDot: { width: 6, height: 6, borderRadius: 3 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  reachRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
+  reachName: { flex: 1, fontSize: 12, color: colors.textSec },
+  reachVal: { fontSize: 12, color: colors.textMuted },
+  reachBar: { height: 5, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
+  reachFill: { height: '100%', borderRadius: 3 },
+  postRow: { flexDirection: 'row', gap: 12 },
+  postThumb: { width: 56, height: 44, borderRadius: 9 },
+  postText: { fontSize: 12, color: colors.textSec, lineHeight: 18, flex: 1 },
+  postMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  postTime: { fontSize: 10, color: colors.textMuted, marginLeft: 'auto' },
+  postStats: { fontSize: 11, color: colors.textMuted, marginTop: 5 },
+  scheduledDate: { width: 44, height: 52, borderRadius: 10, backgroundColor: colors.cyanDim, borderWidth: 1, borderColor: colors.cyan + '44', alignItems: 'center', justifyContent: 'center' },
+  scheduledMonth: { fontSize: 8, fontWeight: '700', color: colors.cyan, textTransform: 'uppercase' },
+  scheduledDay: { fontSize: 20, fontWeight: '900', color: colors.cyan, lineHeight: 22 },
+  scheduledTime: { fontSize: 8, color: colors.cyan + 'AA' },
 });

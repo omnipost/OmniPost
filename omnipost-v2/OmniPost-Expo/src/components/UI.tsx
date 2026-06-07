@@ -5,7 +5,7 @@ import {
   Animated, TextInput, TextInputProps,
   StyleProp, ViewStyle,
 } from 'react-native';
-import { Colors, Spacing, Radius, Typography } from '../constants/theme';
+import { Colors, Spacing, Radius, Typography, useTheme } from '../constants/theme';
 import { PLATFORMS } from '../constants/platforms';
 
 /* ── PrimaryButton ───────────────────────────────────────────── */
@@ -19,19 +19,20 @@ interface BtnProps {
   icon?: React.ReactNode;
 }
 export function Button({ label, onPress, loading, disabled, variant = 'primary', style, icon }: BtnProps) {
+  const { colors } = useTheme();
   const bg = {
-    primary:   Colors.brand,
-    secondary: Colors.bg3,
+    primary:   colors.brand,
+    secondary: colors.bg3,
     ghost:     'transparent',
-    danger:    Colors.dangerDim,
+    danger:    colors.dangerDim,
   }[variant];
   const textColor = {
-    primary:   Colors.white,
-    secondary: Colors.text,
-    ghost:     Colors.textSec,
-    danger:    Colors.danger,
+    primary:   colors.white,
+    secondary: colors.text,
+    ghost:     colors.textSec,
+    danger:    colors.danger,
   }[variant];
-  const bdr = variant === 'secondary' ? Colors.border : variant === 'danger' ? Colors.danger + '44' : 'transparent';
+  const bdr = variant === 'secondary' ? colors.border : variant === 'danger' ? colors.danger + '44' : 'transparent';
 
   return (
     <TouchableOpacity
@@ -53,21 +54,23 @@ export function Button({ label, onPress, loading, disabled, variant = 'primary',
 
 /* ── Card ────────────────────────────────────────────────────── */
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  const { colors } = useTheme();
   return (
-    <View style={[styles.card, style]}>{children}</View>
+    <View style={[styles.card, { backgroundColor: colors.bg2, borderColor: colors.border }, style]}>{children}</View>
   );
 }
 
 /* ── Badge ───────────────────────────────────────────────────── */
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'brand' | 'info' | 'default';
 export function Badge({ label, variant = 'default' }: { label: string; variant?: BadgeVariant }) {
+  const { colors } = useTheme();
   const map: Record<BadgeVariant, { bg: string; color: string; border: string }> = {
-    success: { bg: Colors.successDim, color: Colors.success, border: Colors.success + '44' },
-    warning: { bg: Colors.warningDim, color: Colors.warning, border: Colors.warning + '44' },
-    danger:  { bg: Colors.dangerDim,  color: Colors.danger,  border: Colors.danger  + '44' },
-    brand:   { bg: Colors.brandDim,   color: Colors.brand,   border: Colors.brandBdr       },
-    info:    { bg: Colors.cyanDim,    color: Colors.cyan,    border: Colors.cyan    + '44' },
-    default: { bg: Colors.bg3,        color: Colors.textSec, border: Colors.border         },
+    success: { bg: colors.successDim, color: colors.success, border: colors.success + '44' },
+    warning: { bg: colors.warningDim, color: colors.warning, border: colors.warning + '44' },
+    danger:  { bg: colors.dangerDim,  color: colors.danger,  border: colors.danger  + '44' },
+    brand:   { bg: colors.brandDim,   color: colors.brand,   border: colors.brandBdr       },
+    info:    { bg: colors.cyanDim,    color: colors.cyan,    border: colors.cyan    + '44' },
+    default: { bg: colors.bg3,        color: colors.textSec, border: colors.border         },
   };
   const s = map[variant];
   return (
@@ -96,12 +99,13 @@ export function PlatformIcon({ platformId, size = 28 }: { platformId: string; si
 
 /* ── StatCard ────────────────────────────────────────────────── */
 export function StatCard({ label, value, delta }: { label: string; value: string; delta?: number; iconColor?: string }) {
+  const { colors } = useTheme();
   return (
     <Card style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textSec }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
       {delta !== undefined && (
-        <Text style={[styles.statDelta, { color: delta >= 0 ? Colors.success : Colors.danger }]}>
+        <Text style={[styles.statDelta, { color: delta >= 0 ? colors.success : colors.danger }]}>
           {delta >= 0 ? '↑' : '↓'} {Math.abs(delta)}% vs last month
         </Text>
       )}
@@ -111,12 +115,13 @@ export function StatCard({ label, value, delta }: { label: string; value: string
 
 /* ── SectionTitle ────────────────────────────────────────────── */
 export function SectionTitle({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
       {action && (
         <TouchableOpacity onPress={onAction}>
-          <Text style={styles.sectionAction}>{action}</Text>
+          <Text style={[styles.sectionAction, { color: colors.brand }]}>{action}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -125,11 +130,13 @@ export function SectionTitle({ title, action, onAction }: { title: string; actio
 
 /* ── Divider ─────────────────────────────────────────────────── */
 export function Divider() {
-  return <View style={styles.divider} />;
+  const { colors } = useTheme();
+  return <View style={[styles.divider, { backgroundColor: colors.border }]} />;
 }
 
 /* ── Toggle ──────────────────────────────────────────────────── */
 export function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  const { colors } = useTheme();
   const anim = React.useRef(new Animated.Value(value ? 1 : 0)).current;
   React.useEffect(() => {
     Animated.timing(anim, { toValue: value ? 1 : 0, duration: 180, useNativeDriver: false }).start();
@@ -139,7 +146,7 @@ export function Toggle({ value, onChange }: { value: boolean; onChange: (v: bool
     <TouchableOpacity
       onPress={() => onChange(!value)}
       activeOpacity={0.8}
-      style={[styles.toggle, { backgroundColor: value ? Colors.brand : Colors.border }]}
+      style={[styles.toggle, { backgroundColor: value ? colors.brand : colors.border }]}
     >
       <Animated.View style={[styles.toggleThumb, { transform: [{ translateX }] }]} />
     </TouchableOpacity>
@@ -149,28 +156,75 @@ export function Toggle({ value, onChange }: { value: boolean; onChange: (v: bool
 /* ── InputField ──────────────────────────────────────────────── */
 export function InputField(props: TextInputProps & { label?: string; error?: string }) {
   const { label, error, style, ...rest } = props;
+  const { colors } = useTheme();
   return (
     <View style={styles.inputWrapper}>
-      {label && <Text style={styles.inputLabel}>{label}</Text>}
+      {label && <Text style={[styles.inputLabel, { color: colors.textSec }]}>{label}</Text>}
       <TextInput
-        style={[styles.input, style]}
-        placeholderTextColor={Colors.textMuted}
+        style={[styles.input, { backgroundColor: colors.bg1, color: colors.text, borderColor: colors.border }, style]}
+        placeholderTextColor={colors.textMuted}
         {...rest}
       />
-      {error && <Text style={styles.inputError}>{error}</Text>}
+      {error && <Text style={[styles.inputError, { color: colors.danger }]}>{error}</Text>}
     </View>
   );
 }
 
 /* ── EmptyState ──────────────────────────────────────────────── */
 export function EmptyState({ icon, title, description, action }: { icon?: string; title: string; description?: string; action?: React.ReactNode }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.emptyState}>
       {icon && <Text style={styles.emptyIcon}>{icon}</Text>}
-      <Text style={styles.emptyTitle}>{title}</Text>
-      {description && <Text style={styles.emptyDesc}>{description}</Text>}
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
+      {description && <Text style={[styles.emptyDesc, { color: colors.textSec }]}>{description}</Text>}
       {action && <View style={styles.emptyAction}>{action}</View>}
     </View>
+  );
+}
+
+/* ── Skeleton Loading ────────────────────────────────────────── */
+interface SkeletonProps {
+  width?: any;
+  height: number;
+  borderRadius?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+export function Skeleton({ width = '100%', height, borderRadius = Radius.sm, style }: SkeletonProps) {
+  const { colors } = useTheme();
+  const anim = React.useRef(new Animated.Value(0.3)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0.3,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [anim]);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          backgroundColor: colors.bg3,
+          opacity: anim,
+        },
+        style,
+      ]}
+    />
   );
 }
 
@@ -182,8 +236,8 @@ const styles = StyleSheet.create({
   btnText: { fontSize: 14, fontWeight: '700' },
 
   card: {
-    backgroundColor: Colors.bg2, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: Colors.border, padding: Spacing.lg,
+    borderRadius: Radius.lg,
+    borderWidth: 1, padding: Spacing.lg,
   },
 
   badge: {
@@ -193,30 +247,30 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '600' },
 
   statCard:  { padding: 16 },
-  statLabel: { fontSize: 11, color: Colors.textSec, fontWeight: '500', marginBottom: 8 },
-  statValue: { fontSize: 24, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
+  statLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
+  statValue: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
   statDelta: { fontSize: 12, marginTop: 4 },
 
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  sectionTitle:  { fontSize: 15, fontWeight: '800', color: Colors.text },
-  sectionAction: { fontSize: 12, color: Colors.brand, fontWeight: '600' },
+  sectionTitle:  { fontSize: 15, fontWeight: '800' },
+  sectionAction: { fontSize: 12, fontWeight: '600' },
 
-  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 12 },
+  divider: { height: 1, marginVertical: 12 },
 
   toggle:      { width: 40, height: 22, borderRadius: 11, justifyContent: 'center' },
   toggleThumb: { width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
 
   inputWrapper: { marginBottom: 14 },
-  inputLabel:   { fontSize: 11, fontWeight: '700', color: Colors.textSec, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  inputLabel:   { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   input: {
-    backgroundColor: Colors.bg1, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border,
-    paddingHorizontal: 14, paddingVertical: 12, color: Colors.text, fontSize: 14,
+    borderRadius: Radius.md, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
   },
-  inputError: { fontSize: 11, color: Colors.danger, marginTop: 4 },
+  inputError: { fontSize: 11, marginTop: 4 },
 
   emptyState:  { alignItems: 'center', paddingVertical: 48 },
   emptyIcon:   { fontSize: 40, marginBottom: 14 },
-  emptyTitle:  { fontSize: 16, fontWeight: '800', color: Colors.text, marginBottom: 6 },
-  emptyDesc:   { fontSize: 13, color: Colors.textSec, textAlign: 'center', lineHeight: 20, paddingHorizontal: 32 },
+  emptyTitle:  { fontSize: 16, fontWeight: '800', marginBottom: 6 },
+  emptyDesc:   { fontSize: 13, textAlign: 'center', lineHeight: 20, paddingHorizontal: 32 },
   emptyAction: { marginTop: 16 },
 });
