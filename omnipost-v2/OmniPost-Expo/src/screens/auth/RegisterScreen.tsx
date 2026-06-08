@@ -8,6 +8,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Spacing, useTheme } from '../../constants/theme';
 // Colors re-exported for getStyles type param only
 import { Button, InputField } from '../../components/UI';
+import { CountryCodePicker } from '../../components/CountryCodePicker';
+import { CountryOption, COUNTRIES } from '../../constants/countries';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../services/api';
 import { PLATFORMS } from '../../constants/platforms';
@@ -20,6 +22,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const styles = React.useMemo(() => getStyles(colors), [colors]);
   const [name, setName]       = useState('');
   const [email, setEmail]     = useState('');
+  const [country, setCountry] = useState<CountryOption>(COUNTRIES.find(c => c.iso2 === 'IN') ?? COUNTRIES[0]);
   const [mobile, setMobile]   = useState('');
   const [password, setPass]   = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +40,7 @@ export default function RegisterScreen({ navigation }: Props) {
         id: 'demo-user-id-' + Math.random().toString(36).substring(2, 9),
         name: name.trim(),
         email: email.trim(),
-        mobile: mobile.trim() || undefined,
+        mobile: mobile.trim() ? `${country.dialCode}${mobile.trim()}` : undefined,
         plan: 'creator' as const,
         isVerified: true,
         createdAt: new Date().toISOString(),
@@ -71,8 +74,16 @@ export default function RegisterScreen({ navigation }: Props) {
         <InputField label="Full Name *" value={name}   onChangeText={setName}   placeholder="Priya Sharma" />
         <InputField label="Email *"     value={email}  onChangeText={setEmail}  keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" />
         <View style={styles.mobileRow}>
-          <View style={styles.dialCode}><Text style={styles.dialText}>+91</Text></View>
-          <InputField value={mobile} onChangeText={setMobile} keyboardType="phone-pad" placeholder="98765 43210" style={{ flex: 1, marginBottom: 0 }} label="" />
+          <CountryCodePicker value={country} onSelect={setCountry} />
+          <InputField
+            containerStyle={{ flex: 1 }}
+            value={mobile}
+            onChangeText={setMobile}
+            keyboardType="phone-pad"
+            placeholder="98765 43210"
+            style={{ marginBottom: 0 }}
+            label=""
+          />
         </View>
         <InputField label="Password *" value={password} onChangeText={setPass} secureTextEntry placeholder="Min 8 chars, uppercase, number" />
         <Text style={styles.hint}>By creating an account you agree to our Terms of Service and Privacy Policy.</Text>
@@ -98,7 +109,7 @@ const getStyles = (colors: typeof Colors) => StyleSheet.create({
   sub:        { fontSize: 14, color: colors.textSec, marginBottom: 18 },
   trialBadge: { backgroundColor: colors.successDim, borderRadius: 10, borderWidth: 1, borderColor: colors.success + '44', padding: 12, marginBottom: 20 },
   trialText:  { fontSize: 13, color: colors.success, fontWeight: '600', textAlign: 'center' },
-  mobileRow:  { flexDirection: 'row', gap: 10, alignItems: 'flex-end', marginBottom: 14 },
+  mobileRow:  { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
   dialCode:   { backgroundColor: colors.bg2, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
   dialText:   { fontSize: 14, color: colors.textSec, fontWeight: '600' },
   hint:       { fontSize: 11, color: colors.textMuted, textAlign: 'center', marginBottom: 14, lineHeight: 16 },

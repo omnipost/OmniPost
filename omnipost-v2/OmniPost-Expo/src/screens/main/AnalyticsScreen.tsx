@@ -140,7 +140,7 @@ export default function AnalyticsScreen() {
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
   root:           { flex: 1, backgroundColor: colors.bg0 },
-  content:        { padding: Spacing.lg, paddingTop: 8 },
+  content:        { padding: Spacing.lg, paddingTop: 12 },
   rangeRow:       { gap: 8, marginBottom: 16 },
   rangeBtn:       { paddingHorizontal: 14, paddingVertical: 8, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
   rangeBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },

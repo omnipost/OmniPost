@@ -113,7 +113,7 @@ export default function CalendarScreen({ navigation }: any) {
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
   root:           { flex: 1, backgroundColor: colors.bg0 },
-  content:        { padding: Spacing.lg },
+  content:        { padding: Spacing.lg, paddingTop: 12 },
   header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   monthTitle:     { fontSize: 20, fontWeight: '900', color: colors.text },
   schedBtn:       { paddingVertical: 9, paddingHorizontal: 14 },

@@ -7,6 +7,8 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Spacing, Radius, Typography, useTheme } from '../../constants/theme';
 import { Button, InputField } from '../../components/UI';
+import { CountryCodePicker } from '../../components/CountryCodePicker';
+import { CountryOption, COUNTRIES } from '../../constants/countries';
 import { useAuthStore } from '../../store/authStore';
 import { DEMO_CREDENTIALS } from '../../constants/platforms';
 import { authApi } from '../../services/api';
@@ -21,6 +23,7 @@ export default function LoginScreen({ navigation }: Props) {
   const [method, setMethod]     = useState<LoginMethod>('email');
   const [email, setEmail]       = useState(DEMO_CREDENTIALS.email);
   const [password, setPassword] = useState(DEMO_CREDENTIALS.password);
+  const [country, setCountry]   = useState<CountryOption>(COUNTRIES.find(c => c.iso2 === 'IN') ?? COUNTRIES[0]);
   const [mobile, setMobile]     = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -67,7 +70,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(true);
     try {
       setOtpSent(true);
-      Alert.alert('OTP Sent', `OTP sent to +91 ${mobile}. Use demo OTP: ${DEMO_CREDENTIALS.otp}`);
+      Alert.alert('OTP Sent', `OTP sent to ${country.dialCode} ${mobile}. Use demo OTP: ${DEMO_CREDENTIALS.otp}`);
     } catch (error: any) {
       const message = error?.response?.data?.error || 'Failed to send OTP';
       Alert.alert('OTP Error', message);
@@ -85,7 +88,7 @@ export default function LoginScreen({ navigation }: Props) {
           id: 'demo-user-id',
           name: 'Demo Creator',
           email: 'demo@omnipost.in',
-          mobile: mobile,
+          mobile: `${country.dialCode}${mobile}`,
           plan: 'creator' as const,
           isVerified: true,
           createdAt: new Date().toISOString(),
@@ -178,13 +181,14 @@ export default function LoginScreen({ navigation }: Props) {
         ) : (
           <>
             <View style={styles.mobileRow}>
-              <View style={styles.dialCode}><Text style={styles.dialText}>+91</Text></View>
+              <CountryCodePicker value={country} onSelect={setCountry} />
               <InputField
+                containerStyle={{ flex: 1 }}
                 value={mobile}
                 onChangeText={setMobile}
                 keyboardType="phone-pad"
-                placeholder="98765 43210"
-                style={{ flex: 1, marginBottom: 0 }}
+                placeholder="1234567890"
+                style={{ marginBottom: 0, textAlign: 'center' }}
                 label=""
               />
             </View>
@@ -278,7 +282,7 @@ const getStyles = (colors: typeof Colors) => StyleSheet.create({
   forgotRow:  { alignItems: 'flex-end', marginBottom: 16 },
   forgotText: { fontSize: 13, color: colors.brand, fontWeight: '600' },
 
-  mobileRow:  { flexDirection: 'row', gap: 10, alignItems: 'flex-end', marginBottom: 14 },
+  mobileRow:  { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
   dialCode:   { backgroundColor: colors.bg2, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12, justifyContent: 'center' },
   dialText:   { fontSize: 14, color: colors.textSec, fontWeight: '600' },
   resendRow:  { alignItems: 'center', marginTop: 12 },
