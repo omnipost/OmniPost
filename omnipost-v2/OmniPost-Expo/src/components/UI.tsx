@@ -3,7 +3,7 @@ import React from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator,
   Animated, TextInput, TextInputProps,
-  StyleProp, ViewStyle,
+  StyleProp, ViewStyle, TextStyle,
 } from 'react-native';
 import { Colors, Spacing, Radius, Typography, useTheme } from '../constants/theme';
 import { PLATFORMS } from '../constants/platforms';
@@ -154,11 +154,11 @@ export function Toggle({ value, onChange }: { value: boolean; onChange: (v: bool
 }
 
 /* ── InputField ──────────────────────────────────────────────── */
-export function InputField(props: TextInputProps & { label?: string; error?: string }) {
-  const { label, error, style, ...rest } = props;
+export function InputField(props: TextInputProps & { label?: string; error?: string; containerStyle?: StyleProp<ViewStyle> }) {
+  const { label, error, style, containerStyle, ...rest } = props;
   const { colors } = useTheme();
   return (
-    <View style={styles.inputWrapper}>
+    <View style={[styles.inputWrapper, containerStyle]}>
       {label && <Text style={[styles.inputLabel, { color: colors.textSec }]}>{label}</Text>}
       <TextInput
         style={[styles.input, { backgroundColor: colors.bg1, color: colors.text, borderColor: colors.border }, style]}

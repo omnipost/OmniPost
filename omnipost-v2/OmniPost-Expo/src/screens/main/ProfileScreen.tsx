@@ -210,7 +210,7 @@ export default function ProfileScreen({ navigation }: any) {
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg0 },
-  content: { padding: Spacing.lg },
+  content: { padding: Spacing.lg, paddingTop: 12 },
   userHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 },
   avatar: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 22, fontWeight: '900', color: colors.brand },

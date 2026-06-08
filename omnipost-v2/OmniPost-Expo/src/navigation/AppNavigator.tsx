@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
 import { Colors, useTheme } from '../constants/theme';
 
@@ -18,6 +19,7 @@ import CalendarScreen   from '../screens/main/CalendarScreen';
 import AnalyticsScreen  from '../screens/main/AnalyticsScreen';
 import ProfileScreen    from '../screens/main/ProfileScreen';
 import MediaScreen      from '../screens/main/MediaScreen';
+import AppHeader        from '../components/AppHeader';
 
 import type { RootStackParamList, MainTabParamList } from '../types';
 
@@ -34,6 +36,7 @@ const TAB_ICONS: Record<string, string> = {
 };
 
 function TabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   return (
     <View style={{
@@ -41,8 +44,8 @@ function TabBar({ state, descriptors, navigation }: any) {
       backgroundColor: colors.bg1,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-      paddingTop: 8,
+      paddingBottom: insets.bottom + 10,
+      paddingTop: 10,
       paddingHorizontal: 8,
     }}>
       {state.routes.map((route: any, index: number) => {
@@ -92,15 +95,20 @@ function TabBar({ state, descriptors, navigation }: any) {
 }
 
 function MainTabs() {
+  const [activeTab, setActiveTab] = React.useState('Dashboard');
+
   return (
-    <Tab.Navigator tabBar={props => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Analytics" component={AnalyticsScreen} />
-      <Tab.Screen name="Compose"   component={ComposeScreen}   />
-      <Tab.Screen name="Calendar"  component={CalendarScreen}  />
-      <Tab.Screen name="Media"     component={MediaScreen}     />
-      <Tab.Screen name="Profile"   component={ProfileScreen}   />
-    </Tab.Navigator>
+    <View style={{ flex: 1 }}>
+      {activeTab !== 'Profile' && <AppHeader />}
+      <Tab.Navigator tabBar={props => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
+        <Tab.Screen name="Dashboard" component={DashboardScreen} listeners={{ focus: () => setActiveTab('Dashboard') }} />
+        <Tab.Screen name="Analytics" component={AnalyticsScreen} listeners={{ focus: () => setActiveTab('Analytics') }} />
+        <Tab.Screen name="Compose"   component={ComposeScreen}   listeners={{ focus: () => setActiveTab('Compose') }} />
+        <Tab.Screen name="Calendar"  component={CalendarScreen}  listeners={{ focus: () => setActiveTab('Calendar') }} />
+        <Tab.Screen name="Media"     component={MediaScreen}     listeners={{ focus: () => setActiveTab('Media') }} />
+        <Tab.Screen name="Profile"   component={ProfileScreen}   listeners={{ focus: () => setActiveTab('Profile') }} />
+      </Tab.Navigator>
+    </View>
   );
 }
 
@@ -130,28 +138,6 @@ export default function AppNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-
-      {/* Floating Theme Toggle Icon at top right */}
-      <TouchableOpacity
-        onPress={toggleTheme}
-        activeOpacity={0.7}
-        style={{
-          position: 'absolute',
-          top: Platform.OS === 'ios' ? 44 : 32,
-          right: 16,
-          width: 38,
-          height: 38,
-          borderRadius: 19,
-          backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
-          borderWidth: 1,
-          borderColor: isDarkMode ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 99999,
-        }}
-      >
-        <Text style={{ fontSize: 16 }}>{isDarkMode ? '☀️' : '🌙'}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
