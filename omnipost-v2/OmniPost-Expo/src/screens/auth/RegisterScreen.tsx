@@ -1,17 +1,13 @@
-// src/screens/auth/RegisterScreen.tsx
 import React, { useState } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  KeyboardAvoidingView, Platform, Alert, Image,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Colors, Spacing, useTheme } from '../../constants/theme';
-// Colors re-exported for getStyles type param only
+import Toast from 'react-native-toast-message';
+import AuthLayout from '../../components/AuthLayout';
 import { Button, InputField } from '../../components/UI';
-import { CountryCodePicker } from '../../components/CountryCodePicker';
-import { CountryOption, COUNTRIES } from '../../constants/countries';
+import { Spacing, Radius, useTheme } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../services/api';
+import { parseAuthResponse, getApiError } from '../../utils/authHelpers';
 import { PLATFORMS } from '../../constants/platforms';
 import type { RootStackParamList } from '../../types';
 
@@ -19,111 +15,133 @@ type Props = { navigation: NativeStackNavigationProp<RootStackParamList, 'Regist
 
 export default function RegisterScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const styles = React.useMemo(() => getStyles(colors), [colors]);
-  const [name, setName]       = useState('');
-  const [email, setEmail]     = useState('');
-  const [country, setCountry] = useState<CountryOption>(COUNTRIES.find(c => c.iso2 === 'IN') ?? COUNTRIES[0]);
-  const [mobile, setMobile]   = useState('');
-  const [password, setPass]   = useState('');
-  const [loading, setLoading] = useState(false);
+  const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
+  const [mobile, setMobile]     = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
   const { setAuth } = useAuthStore();
 
   async function handleRegister() {
-    if (!name || !email || !password)
-      return Alert.alert('Missing fields', 'Please fill in all required fields');
-    if (password.length < 8)
-      return Alert.alert('Weak password', 'Password must be at least 8 characters');
-
+    setError('');
+    if (!name.trim() || !email.trim() || !password) {
+      setError('Name, email and password are required.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
     setLoading(true);
     try {
-      const mockUser = {
-        id: 'demo-user-id-' + Math.random().toString(36).substring(2, 9),
-        name: name.trim(),
-        email: email.trim(),
-        mobile: mobile.trim() ? `${country.dialCode}${mobile.trim()}` : undefined,
-        plan: 'creator' as const,
-        isVerified: true,
-        createdAt: new Date().toISOString(),
-      };
-      setAuth(mockUser, 'mock-access-token');
+      const res = await authApi.register(
+        name.trim(),
+        email.trim(),
+        password,
+        mobile.trim() || undefined
+      );
+      const { user, accessToken } = parseAuthResponse(res);
+      setAuth(user, accessToken);
+      Toast.show({ type: 'success', text1: 'Account created!', text2: 'Welcome to OmniPost' });
       navigation.replace('Onboarding');
-    } catch (error: any) {
-      const message = error?.response?.data?.error || 'Registration failed. Please try again.';
-      Alert.alert('Registration Failed', message);
+    } catch (err) {
+      setError(getApiError(err, 'Could not create account.'));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <View style={styles.logoRow}>
-          <Image
-            source={require('../../../assets/logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-          <Text style={styles.logoText}>OmniPost</Text>
+    <AuthLayout
+      title="Create account"
+      subtitle="Start publishing to all your platforms in minutes."
+      footer={
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: colors.textSec }]}>Already have an account? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+            <Text style={[styles.footerLink, { color: colors.brand }]}>Sign in</Text>
+          </TouchableOpacity>
         </View>
-        <Text style={styles.h1}>Create account</Text>
-        <Text style={styles.sub}>Start your 14-day free Creator trial — no card needed</Text>
-        <View style={styles.trialBadge}>
-          <Text style={styles.trialText}>🎉 14-day free Creator trial included</Text>
+      }
+    >
+      <View style={[styles.badge, { backgroundColor: colors.successDim, borderColor: colors.success + '44' }]}>
+        <Text style={[styles.badgeText, { color: colors.success }]}>Free plan included — no card required</Text>
+      </View>
+
+      <InputField label="Full name" value={name} onChangeText={setName} placeholder="Your name" />
+      <InputField
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        placeholder="you@example.com"
+      />
+
+      <View style={styles.mobileRow}>
+        <View style={[styles.dialCode, { backgroundColor: colors.bg2, borderColor: colors.border }]}>
+          <Text style={[styles.dialText, { color: colors.textSec }]}>+91</Text>
         </View>
-        <InputField label="Full Name *" value={name}   onChangeText={setName}   placeholder="Priya Sharma" />
-        <InputField label="Email *"     value={email}  onChangeText={setEmail}  keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" />
-        <View style={styles.mobileRow}>
-          <CountryCodePicker value={country} onSelect={setCountry} />
+        <View style={{ flex: 1 }}>
           <InputField
-            containerStyle={{ flex: 1 }}
+            label="Mobile (optional)"
             value={mobile}
             onChangeText={setMobile}
             keyboardType="phone-pad"
             placeholder="98765 43210"
-            style={{ marginBottom: 0 }}
-            label=""
           />
         </View>
-        <InputField label="Password *" value={password} onChangeText={setPass} secureTextEntry placeholder="Min 8 chars, uppercase, number" />
-        <Text style={styles.hint}>By creating an account you agree to our Terms of Service and Privacy Policy.</Text>
-        <Button label="Create Account →" onPress={handleRegister} loading={loading} style={{ marginTop: 4 }} />
-        <View style={styles.loginRow}>
-          <Text style={styles.loginText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginLink}>Sign in</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+
+      <InputField
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        placeholder="Min. 8 characters"
+      />
+      {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
+      <Text style={[styles.hint, { color: colors.textMuted }]}> 
+        By signing up you agree to our Terms of Service and Privacy Policy.
+      </Text>
+
+      <Button label="Create Account" onPress={handleRegister} loading={loading} style={{ marginTop: 8 }} />
+    </AuthLayout>
   );
 }
 
-const getStyles = (colors: typeof Colors) => StyleSheet.create({
-  root:       { flex: 1, backgroundColor: colors.bg0 },
-  scroll:     { padding: Spacing.xl, paddingTop: 56 },
-  logoRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 28 },
-  logoImage:  { width: 38, height: 38, borderRadius: 11 },
-  logoText:   { fontSize: 22, fontWeight: '900', color: colors.text },
-  h1:         { fontSize: 26, fontWeight: '900', color: colors.text, marginBottom: 6 },
-  sub:        { fontSize: 14, color: colors.textSec, marginBottom: 18 },
-  trialBadge: { backgroundColor: colors.successDim, borderRadius: 10, borderWidth: 1, borderColor: colors.success + '44', padding: 12, marginBottom: 20 },
-  trialText:  { fontSize: 13, color: colors.success, fontWeight: '600', textAlign: 'center' },
-  mobileRow:  { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 14 },
-  dialCode:   { backgroundColor: colors.bg2, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12 },
-  dialText:   { fontSize: 14, color: colors.textSec, fontWeight: '600' },
-  hint:       { fontSize: 11, color: colors.textMuted, textAlign: 'center', marginBottom: 14, lineHeight: 16 },
-  loginRow:   { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  loginText:  { fontSize: 13, color: colors.textSec },
-  loginLink:  { fontSize: 13, color: colors.brand, fontWeight: '700' },
-});
+const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    badge: {
+      borderRadius: Radius.md, borderWidth: 1,
+      padding: Spacing.md, marginBottom: Spacing.lg,
+    },
+    badgeText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    mobileRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
+    dialCode: {
+      borderRadius: Radius.md, borderWidth: 1,
+      paddingHorizontal: 14, paddingVertical: 12, marginBottom: 14,
+    },
+    dialText: { fontSize: 14, fontWeight: '600' },
+    errorText: { marginBottom: 10, fontSize: 13, fontWeight: '600' },
+    hint: { fontSize: 11, textAlign: 'center', lineHeight: 16, marginBottom: 8 },
+    footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
+    footerText: { fontSize: 14 },
+    footerLink: { fontSize: 14, fontWeight: '700' },
+  });
 
-// ── OnboardingScreen ─────────────────────────────────────────
+// ── Onboarding (unchanged flow) ──────────────────────────────
 export function OnboardingScreen({ navigation }: { navigation: any }) {
   const { colors } = useTheme();
   const ob = React.useMemo(() => getObStyles(colors), [colors]);
-  const [step, setStep]           = useState(0);
-  const [connected, setConnected] = useState<string[]>([]);
+  const [step, setStep]           = React.useState(0);
+  const [connected, setConnected] = React.useState<string[]>([]);
   const steps = ['Welcome', 'Connect', 'Plan', 'Done'];
   const allPlatforms = Object.entries(PLATFORMS).map(([id, p]) => ({ id, ...p }));
 
@@ -143,7 +161,7 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
           </View>
         ))}
       </View>
-      <ScrollView contentContainerStyle={ob.content}>
+      <View style={ob.content}>
         {step === 0 && (
           <View style={ob.centerBox}>
             <Text style={ob.bigEmoji}>⚡</Text>
@@ -178,7 +196,7 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
         {step === 2 && (
           <View>
             <Text style={ob.stepTitle}>Choose Your Plan</Text>
-            <Text style={ob.stepDesc}>Start with a 14-day free trial. Cancel anytime.</Text>
+            <Text style={ob.stepDesc}>Start with a free plan. Upgrade anytime.</Text>
             {[
               { id: 'creator', name: 'Creator', price: '₹499/mo', features: ['10 accounts','Unlimited posts','Scheduling','5 GB media'] },
               { id: 'agency',  name: 'Agency',  price: '₹1,499/mo', features: ['Unlimited accounts','10 team members','50 GB media'] },
@@ -187,54 +205,50 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
                 {plan.id === 'creator' && <View style={ob.popularBadge}><Text style={ob.popularText}>Most Popular</Text></View>}
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={ob.planName}>{plan.name}</Text>
-                  <View>
-                    <Text style={ob.planPrice}>{plan.price}</Text>
-                    <Text style={ob.planTrial}>14 days FREE</Text>
-                  </View>
+                  <Text style={ob.planPrice}>{plan.price}</Text>
                 </View>
                 {plan.features.map(f => <Text key={f} style={ob.planFeature}>✓  {f}</Text>)}
               </TouchableOpacity>
             ))}
-            <Button label="Start Free Trial →" onPress={() => setStep(3)} style={{ marginTop: 12 }} />
-            <Button label="Continue with Free plan" onPress={() => setStep(3)} variant="ghost" style={{ marginTop: 8 }} />
+            <Button label="Continue →" onPress={() => setStep(3)} style={{ marginTop: 12 }} />
           </View>
         )}
         {step === 3 && (
           <View style={ob.centerBox}>
             <Text style={ob.bigEmoji}>🎉</Text>
             <Text style={ob.stepTitle}>You're all set!</Text>
-            <Text style={ob.stepDesc}>Your OmniPost account is ready. Start creating and publishing!</Text>
+            <Text style={ob.stepDesc}>Your OmniPost account is ready.</Text>
             <Button label="Go to Dashboard →" onPress={() => navigation.replace('Main')} style={{ marginTop: 24 }} />
           </View>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
-const getObStyles = (colors: typeof Colors) => StyleSheet.create({
-  progressBar:    { flexDirection: 'row', padding: 20, paddingTop: 52, alignItems: 'center' },
-  stepDot:        { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bg3, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  stepDotActive:  { backgroundColor: colors.brand, borderColor: colors.brand },
-  stepNum:        { fontSize: 12, fontWeight: '700', color: colors.textMuted },
-  stepNumActive:  { color: colors.white },
-  stepLine:       { flex: 1, height: 2, backgroundColor: colors.border, marginHorizontal: 4 },
-  stepLineActive: { backgroundColor: colors.brand },
-  content:        { padding: Spacing.xl, paddingTop: 16 },
-  centerBox:      { alignItems: 'center', paddingTop: 32 },
-  bigEmoji:       { fontSize: 60, marginBottom: 16 },
-  stepTitle:      { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 10, textAlign: 'center' },
-  stepDesc:       { fontSize: 14, color: colors.textSec, textAlign: 'center', lineHeight: 22, marginBottom: 4 },
-  platformGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
-  platformCard:   { width: '47%', padding: 14, backgroundColor: colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 6 },
-  platformIcon:   { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  platformName:   { fontSize: 12, fontWeight: '600', color: colors.textSec, textAlign: 'center' },
-  planCard:       { backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 12, position: 'relative' },
-  planCardActive: { borderColor: colors.brandBdr, backgroundColor: colors.brandDim },
-  popularBadge:   { position: 'absolute', top: -10, alignSelf: 'center', backgroundColor: colors.brand, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 3 },
-  popularText:    { fontSize: 10, fontWeight: '700', color: colors.white },
-  planName:       { fontSize: 16, fontWeight: '800', color: colors.text },
-  planPrice:      { fontSize: 15, fontWeight: '800', color: colors.brand, textAlign: 'right' },
-  planTrial:      { fontSize: 10, color: colors.success, fontWeight: '700', textAlign: 'right' },
-  planFeature:    { fontSize: 12, color: colors.textSec, marginTop: 5, lineHeight: 18 },
-});
+const getObStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+  StyleSheet.create({
+    progressBar:    { flexDirection: 'row', padding: 20, paddingTop: Platform.OS === 'ios' ? 52 : 40, alignItems: 'center' },
+    stepDot:        { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bg3, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+    stepDotActive:  { backgroundColor: colors.brand, borderColor: colors.brand },
+    stepNum:        { fontSize: 12, fontWeight: '700', color: colors.textMuted },
+    stepNumActive:  { color: colors.white },
+    stepLine:       { flex: 1, height: 2, backgroundColor: colors.border, marginHorizontal: 4 },
+    stepLineActive: { backgroundColor: colors.brand },
+    content:        { padding: Spacing.xl, paddingTop: 16, flex: 1 },
+    centerBox:      { alignItems: 'center', paddingTop: 32 },
+    bigEmoji:       { fontSize: 60, marginBottom: 16 },
+    stepTitle:      { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 10, textAlign: 'center' },
+    stepDesc:       { fontSize: 14, color: colors.textSec, textAlign: 'center', lineHeight: 22 },
+    platformGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+    platformCard:   { width: '47%', padding: 14, backgroundColor: colors.bg2, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center', gap: 6 },
+    platformIcon:   { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    platformName:   { fontSize: 12, fontWeight: '600', color: colors.textSec, textAlign: 'center' },
+    planCard:       { backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 18, marginBottom: 12, position: 'relative' },
+    planCardActive: { borderColor: colors.brandBdr, backgroundColor: colors.brandDim },
+    popularBadge:   { position: 'absolute', top: -10, alignSelf: 'center', backgroundColor: colors.brand, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 3 },
+    popularText:    { fontSize: 10, fontWeight: '700', color: colors.white },
+    planName:       { fontSize: 16, fontWeight: '800', color: colors.text },
+    planPrice:      { fontSize: 15, fontWeight: '800', color: colors.brand },
+    planFeature:    { fontSize: 12, color: colors.textSec, marginTop: 5, lineHeight: 18 },
+  });

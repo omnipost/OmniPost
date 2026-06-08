@@ -1,6 +1,8 @@
 // src/screens/main/ProfileScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacing, useTheme, Colors } from '../../constants/theme';
 import { Card, Button, Badge, PlatformIcon, InputField, Toggle, Divider } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
@@ -35,9 +37,20 @@ export default function ProfileScreen({ navigation }: any) {
   }
 
   function handleLogout() {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        logout();
+      }
+      return;
+    }
+    
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: () => logout() },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: () => logout(),
+      },
     ]);
   }
 

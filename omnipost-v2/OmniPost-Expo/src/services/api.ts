@@ -1,12 +1,20 @@
 // src/services/api.ts
 import axios, { AxiosError } from 'axios';
 
-// ── Replace with your PC's local IP when using Expo Go on a physical device ──
-// Find it by running: ipconfig (Windows) → IPv4 Address
-// Example: 'http://192.168.1.5:4000/api'
-// For Expo Go on the same WiFi network as your PC:
-export const BASE_URL = 'http://localhost:4000/api';
-// ─────────────────────────────────────────────────────────────────────────────
+import Constants from 'expo-constants';
+
+// Auto-detect host IP when running in Expo Go so physical devices can reach the
+// backend without editing this file. Falls back to localhost for web/emulator.
+const getDevHost = (): string => {
+  const manifestAny: any = (Constants as any).manifest || (Constants as any).expoConfig || {};
+  const debuggerHost = manifestAny.debuggerHost || manifestAny.hostUri || '';
+  if (typeof debuggerHost === 'string' && debuggerHost.includes(':')) {
+    return debuggerHost.split(':')[0];
+  }
+  return 'localhost';
+};
+
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || `http://${getDevHost()}:4000/api`;
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -38,15 +46,19 @@ export default api;
 
 // ── Auth endpoints ─────────────────────────────────────────────
 export const authApi = {
-  login:     (email: string, password: string) =>
+  login:    (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
-  register:  (name: string, email: string, password: string, mobile?: string) =>
+  register: (name: string, email: string, password: string, mobile?: string) =>
     api.post('/auth/register', { name, email, password, mobile }),
-  sendOtp:   (mobile: string) =>
+  sendOtp:  (mobile: string) =>
     api.post('/auth/otp/send', { mobile }),
   verifyOtp: (mobile: string, otp: string) =>
     api.post('/auth/otp/verify', { mobile, otp }),
-  me:        () => api.get('/auth/me'),
+  forgotPassword: (email: string) =>
+    api.post('/auth/forgot-password', { email }),
+  resetPassword: (email: string, code: string, password: string) =>
+    api.post('/auth/reset-password', { email, code, password }),
+  me: () => api.get('/auth/me'),
 };
 
 // ── Social accounts ────────────────────────────────────────────

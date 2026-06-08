@@ -1,42 +1,24 @@
-// ─── Auth Controller ─────────────────────────────────────────────
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ObjectId } from 'mongodb';
-import { getDb } from '../config/database';
-import { logger } from '../config/logger';
+import mongoose from 'mongoose';
+import User, { IUserDocument } from '../models/User';
+import PasswordReset from '../models/PasswordReset';
+import { sendEmail, passwordResetEmail } from '../services/notifications';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_replace_in_prod';
+const JWT_SECRET = process.env.JWT_SECRET as string;
+if (!JWT_SECRET) throw new Error("JWT_SECRET is not defined in .env");
+
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
+const RESET_EXPIRY_MS = 15 * 60 * 1000;
 
-interface UserDoc {
-  _id?: any;
-  name: string;
-  email: string;
-  mobile?: string;
-  passwordHash?: string;
-  plan: string;
-  isVerified: boolean;
-  createdAt: Date;
+const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+
+function signToken(userId: string) {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '3d' } as jwt.SignOptions);
 }
 
-const otpStore = new Map<string, { hash: string; expiresAt: number }>();
-
-function signToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '3d',
-  } as jwt.SignOptions);
-}
-
-function ok(res: Response, data: unknown, message?: string) {
-  return res.json({ success: true, data, message });
-}
-
-function fail(res: Response, status: number, error: string) {
-  return res.status(status).json({ success: false, error });
-}
-
-function formatUser(user: UserDoc & { _id: any }) {
+function formatUser(user: IUserDocument) {
   return {
     id: user._id.toString(),
     name: user.name,
@@ -47,158 +29,162 @@ function formatUser(user: UserDoc & { _id: any }) {
   };
 }
 
-function getUsersCollection() {
-  return getDb().collection<UserDoc>('users');
-}
-
-/* ── Register ─────────────────────────────────────────────── */
 export async function register(req: Request, res: Response) {
   try {
     const { name, email, password, mobile } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ success: false, error: 'Required fields missing' });
 
-    if (!name || !email || !password)
-      return fail(res, 400, 'name, email and password are required');
+    const userEmail = String(email).trim().toLowerCase();
+    if (await User.findOne({ email: userEmail })) return res.status(409).json({ success: false, error: 'Email already exists' });
 
-    const users = getUsersCollection();
-    const normalizedEmail = String(email).trim().toLowerCase();
-
-    const existing = await users.findOne({ email: normalizedEmail });
-    if (existing) return fail(res, 409, 'Email already registered');
-
-    const passwordHash = await bcrypt.hash(password, 12);
-    const createdAt = new Date();
-    const result = await users.insertOne({
-      name: name.trim(),
-      email: normalizedEmail,
+    const user = await User.create({
+      name: String(name).trim(),
+      email: userEmail,
       mobile: mobile ? String(mobile).trim() : undefined,
-      passwordHash,
+      passwordHash: await bcrypt.hash(password, 12),
       plan: 'free',
       isVerified: false,
-      createdAt,
+      createdAt: new Date(),
     });
 
-    const user = formatUser({ _id: result.insertedId, name: name.trim(), email: normalizedEmail, mobile: mobile ? String(mobile).trim() : undefined, plan: 'free', isVerified: false, createdAt });
-    const token = signToken(user.id);
-
-    logger.info(`New user registered: ${normalizedEmail}`);
-    return ok(res, { user, accessToken: token }, 'Account created successfully');
-  } catch (err: unknown) {
-    logger.error('Register error:', err);
-    return fail(res, 500, 'Registration failed');
+    res.json({ success: true, data: { user: formatUser(user), accessToken: signToken(user._id.toString()) } });
+  } catch {
+    res.status(500).json({ success: false, error: 'Registration failed' });
   }
 }
 
-/* ── Login ────────────────────────────────────────────────── */
 export async function login(req: Request, res: Response) {
   try {
     const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ success: false, error: 'Required fields missing' });
 
-    if (!email || !password)
-      return fail(res, 400, 'email and password are required');
+    const user = await User.findOne({ email: String(email).trim().toLowerCase() });
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
 
-    const users = getUsersCollection();
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const user = await users.findOne({ email: normalizedEmail });
-    if (!user || !user.passwordHash)
-      return fail(res, 401, 'Invalid credentials');
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return fail(res, 401, 'Invalid credentials');
-
-    const token = signToken(user._id.toString());
-    logger.info(`User logged in: ${normalizedEmail}`);
-    return ok(res, { user: formatUser({ ...user, _id: user._id }), accessToken: token });
-  } catch (err: unknown) {
-    logger.error('Login error:', err);
-    return fail(res, 500, 'Login failed');
+    res.json({ success: true, data: { user: formatUser(user), accessToken: signToken(user._id.toString()) } });
+  } catch {
+    res.status(500).json({ success: false, error: 'Login failed' });
   }
 }
 
-/* ── Send OTP ─────────────────────────────────────────────── */
 export async function sendOtp(req: Request, res: Response) {
   try {
-    const { mobile } = req.body;
-    if (!mobile) return fail(res, 400, 'mobile number is required');
+    const mobile = req.body.mobile?.toString().trim();
+    if (!mobile) return res.status(400).json({ success: false, error: 'Mobile required' });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const hash = await bcrypt.hash(otp, 10);
-    otpStore.set(String(mobile).trim(), { hash, expiresAt: Date.now() + OTP_EXPIRY_MS });
-
-    logger.info(`OTP sent to ${mobile} (dev OTP: ${otp})`);
-    return ok(res, { message: 'OTP sent successfully' });
-  } catch (err: unknown) {
-    logger.error('sendOtp error:', err);
-    return fail(res, 500, 'Failed to send OTP');
+    otpStore.set(mobile, { otp, expiresAt: Date.now() + OTP_EXPIRY_MS });
+    
+    // In production, send SMS here. For dev, we just log it implicitly via response or terminal if needed.
+    res.json({ success: true, message: 'OTP sent successfully' });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to send OTP' });
   }
 }
 
-/* ── Verify OTP & Login ───────────────────────────────────── */
 export async function verifyOtp(req: Request, res: Response) {
   try {
-    const { mobile, otp } = req.body;
-    if (!mobile || !otp) return fail(res, 400, 'mobile and otp are required');
+    const mobile = req.body.mobile?.toString().trim();
+    const otp = req.body.otp?.toString().trim();
+    if (!mobile || !otp) return res.status(400).json({ success: false, error: 'Mobile and OTP required' });
 
-    const entry = otpStore.get(String(mobile).trim());
-    if (!entry || entry.expiresAt < Date.now()) {
-      otpStore.delete(String(mobile).trim());
-      return fail(res, 400, 'OTP expired');
+    const entry = otpStore.get(mobile);
+    if (!entry || entry.expiresAt < Date.now() || entry.otp !== otp) {
+      if (entry && entry.expiresAt < Date.now()) otpStore.delete(mobile);
+      return res.status(400).json({ success: false, error: 'Invalid or expired OTP' });
     }
+    
+    otpStore.delete(mobile);
 
-    const valid = await bcrypt.compare(otp, entry.hash);
-    if (!valid) return fail(res, 400, 'Invalid OTP');
-    otpStore.delete(String(mobile).trim());
-
-    const users = getUsersCollection();
-    const normalizedMobile = String(mobile).trim();
-    let user = await users.findOne({ mobile: normalizedMobile });
-
+    let user = await User.findOne({ mobile });
     if (!user) {
-      const createdAt = new Date();
-      const result = await users.insertOne({
-        name: `User ${normalizedMobile.slice(-4)}`,
-        email: `${normalizedMobile}@omnipost.local`,
-        mobile: normalizedMobile,
+      user = await User.create({
+        name: `User ${mobile.slice(-4)}`,
+        email: `${mobile}@omnipost.local`,
+        mobile,
         plan: 'free',
         isVerified: true,
-        createdAt,
+        createdAt: new Date(),
       });
-      user = { _id: result.insertedId, name: `User ${normalizedMobile.slice(-4)}`, email: `${normalizedMobile}@omnipost.local`, mobile: normalizedMobile, plan: 'free', isVerified: true, createdAt };
     }
 
-    const token = signToken(user._id.toString());
-    return ok(res, { user: formatUser({ ...user, _id: user._id }), accessToken: token });
-  } catch (err: unknown) {
-    logger.error('verifyOtp error:', err);
-    return fail(res, 500, 'OTP verification failed');
+    res.json({ success: true, data: { user: formatUser(user), accessToken: signToken(user._id.toString()) } });
+  } catch {
+    res.status(500).json({ success: false, error: 'OTP verification failed' });
   }
 }
 
-/* ── Get current user ─────────────────────────────────────── */
 export async function getMe(req: Request, res: Response) {
   try {
     const userId = (req as any).userId;
-    if (!userId) return fail(res, 401, 'Unauthorized');
+    if (!mongoose.isValidObjectId(userId)) return res.status(400).json({ success: false, error: 'Invalid user ID' });
 
-    const users = getUsersCollection();
-    const user = await users.findOne({ _id: new ObjectId(userId) });
-    if (!user) return fail(res, 404, 'User not found');
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
 
-    return ok(res, formatUser({ ...user, _id: user._id }));
-  } catch (err: unknown) {
-    logger.error('getMe error:', err);
-    return fail(res, 500, 'Failed to fetch user');
+    res.json({ success: true, data: formatUser(user) });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to fetch user' });
   }
 }
 
-/* ── Refresh token ────────────────────────────────────────── */
+export async function forgotPassword(req: Request, res: Response) {
+  try {
+    const email = req.body.email?.toString().trim().toLowerCase();
+    if (!email) return res.status(400).json({ success: false, error: 'Email required' });
+
+    const user = await User.findOne({ email });
+    const message = 'If registered, a reset code was sent.';
+    if (!user) return res.json({ success: true, message });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+
+    await PasswordReset.findOneAndUpdate(
+      { email },
+      { email, codeHash, expiresAt: new Date(Date.now() + RESET_EXPIRY_MS), createdAt: new Date() },
+      { upsert: true }
+    );
+
+    sendEmail({ to: email, subject: 'Reset Password', html: passwordResetEmail(user.name, code) }).catch(() => {});
+    
+    res.json({ success: true, message, devCode: process.env.NODE_ENV !== 'production' ? code : undefined });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to process request' });
+  }
+}
+
+export async function resetPassword(req: Request, res: Response) {
+  try {
+    const { email, code, password } = req.body;
+    if (!email || !code || !password) return res.status(400).json({ success: false, error: 'Missing fields' });
+    if (String(password).length < 8) return res.status(400).json({ success: false, error: 'Password too short' });
+
+    const userEmail = String(email).trim().toLowerCase();
+    const resetDoc = await PasswordReset.findOne({ email: userEmail });
+    if (!resetDoc || resetDoc.expiresAt < new Date() || !(await bcrypt.compare(String(code).trim(), resetDoc.codeHash))) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired code' });
+    }
+
+    const user = await User.findOneAndUpdate({ email: userEmail }, { passwordHash: await bcrypt.hash(password, 12) }, { new: true });
+    await PasswordReset.deleteOne({ email: userEmail });
+
+    res.json({ success: true, data: formatUser(user as IUserDocument), message: 'Password reset' });
+  } catch {
+    res.status(500).json({ success: false, error: 'Failed to reset password' });
+  }
+}
+
 export async function refreshToken(req: Request, res: Response) {
   try {
-    const { refreshToken: token } = req.body;
-    if (!token) return fail(res, 400, 'refreshToken is required');
+    const token = req.body.refreshToken;
+    if (!token) return res.status(400).json({ success: false, error: 'refreshToken required' });
+    
     const payload = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const newToken = signToken(payload.userId);
-    return ok(res, { accessToken: newToken });
+    res.json({ success: true, data: { accessToken: signToken(payload.userId) } });
   } catch {
-    return fail(res, 401, 'Invalid or expired refresh token');
+    res.status(401).json({ success: false, error: 'Invalid token' });
   }
 }

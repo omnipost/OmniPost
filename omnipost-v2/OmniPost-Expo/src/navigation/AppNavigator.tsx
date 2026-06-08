@@ -1,16 +1,18 @@
 // src/navigation/AppNavigator.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, Platform } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { NavigationContainer, CommonActions, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/authStore';
-import { Colors, useTheme } from '../constants/theme';
+import { useTheme } from '../constants/theme';
 
 // Auth screens
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen, { OnboardingScreen } from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 // Main screens
 import DashboardScreen  from '../screens/main/DashboardScreen';
@@ -25,6 +27,8 @@ import type { RootStackParamList, MainTabParamList } from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab   = createBottomTabNavigator<MainTabParamList>();
+const navigationRef = createNavigationContainerRef<any>();
+
 
 const TAB_ICONS: Record<string, string> = {
   Dashboard: '🏠',
@@ -38,6 +42,12 @@ const TAB_ICONS: Record<string, string> = {
 function TabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  // Show Profile tab only for medium+ widths (responsive)
+  const showProfile = width >= 768; // 'medium' breakpoint
+  const visibleRoutes = state.routes.filter((r: any) => (r.name !== 'Profile') ? true : showProfile);
+  const tabWidth = Math.max(64, width / Math.max(1, visibleRoutes.length));
+
   return (
     <View style={{
       flexDirection: 'row',
@@ -48,10 +58,10 @@ function TabBar({ state, descriptors, navigation }: any) {
       paddingTop: 10,
       paddingHorizontal: 8,
     }}>
-      {state.routes.map((route: any, index: number) => {
-        const { options }   = descriptors[route.key];
-        const isFocused     = state.index === index;
-        const isCompose     = route.name === 'Compose';
+      {visibleRoutes.map((route: any, idx: number) => {
+        const routeIndex = state.routes.findIndex((r: any) => r.key === route.key);
+        const isFocused = state.index === routeIndex;
+        const isCompose = route.name === 'Compose';
 
         function onPress() {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -61,7 +71,7 @@ function TabBar({ state, descriptors, navigation }: any) {
         if (isCompose) {
           return (
             <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.8}
-              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
               <View style={{
                 width: 50, height: 50, borderRadius: 25,
                 backgroundColor: colors.brand,
@@ -79,9 +89,9 @@ function TabBar({ state, descriptors, navigation }: any) {
 
         return (
           <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.8}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+            style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 20, opacity: isFocused ? 1 : 0.5 }}>{TAB_ICONS[route.name]}</Text>
-            <Text style={{ fontSize: 10, color: isFocused ? colors.brand : colors.textMuted, fontWeight: isFocused ? '700' : '500' }}>
+            <Text style={{ fontSize: 10, color: isFocused ? colors.brand : colors.textMuted, fontWeight: isFocused ? '700' : '500', marginTop: 4 }}>
               {route.name}
             </Text>
             {isFocused && (
@@ -115,9 +125,26 @@ function MainTabs() {
 import SplashScreen from '../screens/auth/SplashScreen';
 
 export default function AppNavigator() {
-  const { isAuthenticated } = useAuthStore();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const logout = useAuthStore((state) => state.logout);
   const [showSplash, setShowSplash] = React.useState(true);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
   const { isDarkMode, toggleTheme, colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const drawerWidth = Math.min(320, width * 0.75);
+
+  const openScreen = (screen: string) => {
+    setDrawerOpen(false);
+    if (!navigationRef.isReady()) return;
+    navigationRef.dispatch(
+      CommonActions.navigate({ name: 'Main', params: { screen } })
+    );
+  };
+
+  const handleLogout = () => {
+    setDrawerOpen(false);
+    logout();
+  };
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
@@ -125,13 +152,15 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg0 }}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
           {!isAuthenticated ? (
             <>
-              <Stack.Screen name="Login"      component={LoginScreen}      />
-              <Stack.Screen name="Register"   component={RegisterScreen}   />
-              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+              <Stack.Screen name="Login"          component={LoginScreen}          />
+              <Stack.Screen name="Register"       component={RegisterScreen}       />
+              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+              <Stack.Screen name="ResetPassword"  component={ResetPasswordScreen}  />
+              <Stack.Screen name="Onboarding"     component={OnboardingScreen}     />
             </>
           ) : (
             <Stack.Screen name="Main" component={MainTabs} />
