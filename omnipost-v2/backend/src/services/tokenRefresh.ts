@@ -2,7 +2,7 @@
 // Automatically refresh expiring OAuth tokens for each platform
 
 import axios from 'axios';
-import { db } from '../config/database';
+import SocialAccount from '../models/SocialAccount';
 import { encrypt, decrypt } from '../utils/encryption';
 import { logger } from '../config/logger';
 
@@ -83,71 +83,53 @@ const REFRESHERS: Record<string, (rt: string) => Promise<TokenResult>> = {
 /* ── Refresh a single account's token ──────────────────────── */
 export async function refreshAccountToken(accountId: string): Promise<boolean> {
   try {
-    // Fetch account from DB
-    const { rows } = await db.query(
-      'SELECT id, platform, refresh_token_enc FROM social_accounts WHERE id = $1',
-      [accountId]
-    );
-    if (!rows.length) throw new Error(`Account ${accountId} not found`);
+    const account = await SocialAccount.findById(accountId).exec();
+    if (!account) throw new Error(`Account ${accountId} not found`);
 
-    const account       = rows[0];
-    const refresher     = REFRESHERS[account.platform];
+    const refresher = REFRESHERS[account.platform];
     if (!refresher) {
       logger.warn(`No refresher for platform: ${account.platform}`);
       return false;
     }
 
-    // Decrypt stored refresh token
     const refreshToken = decrypt(account.refresh_token_enc);
-
-    // Get new tokens
     const result = await refresher(refreshToken);
 
-    // Encrypt and store new tokens
-    await db.query(
-      `UPDATE social_accounts
-       SET access_token_enc  = $1,
-           refresh_token_enc = $2,
-           token_expires_at  = $3,
-           status            = 'connected',
-           updated_at        = NOW()
-       WHERE id = $4`,
-      [
-        encrypt(result.accessToken),
-        result.refreshToken ? encrypt(result.refreshToken) : account.refresh_token_enc,
-        result.expiresAt,
-        accountId,
-      ]
-    );
+    account.access_token_enc = encrypt(result.accessToken);
+    account.refresh_token_enc = result.refreshToken ? encrypt(result.refreshToken) : account.refresh_token_enc;
+    account.token_expires_at = result.expiresAt;
+    account.status = 'connected';
+    account.updated_at = new Date();
+    await account.save();
 
     logger.info(`Token refreshed for account ${accountId} (${account.platform})`);
     return true;
   } catch (err) {
     logger.error(`Token refresh failed for account ${accountId}:`, err);
-    // Mark as expired in DB
-    await db.query(
-      "UPDATE social_accounts SET status = 'expired', updated_at = NOW() WHERE id = $1",
-      [accountId]
-    );
+    await SocialAccount.findByIdAndUpdate(accountId, {
+      status: 'expired',
+      updated_at: new Date(),
+    }).exec();
     return false;
   }
 }
 
 /* ── Batch refresh all expiring tokens (run every hour) ─────── */
 export async function refreshExpiringTokens(): Promise<void> {
-  // Find tokens expiring in the next 24 hours
-  const { rows } = await db.query(`
-    SELECT id, platform FROM social_accounts
-    WHERE status = 'connected'
-      AND token_expires_at IS NOT NULL
-      AND token_expires_at < NOW() + INTERVAL '24 hours'
-  `);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const accounts = await SocialAccount.find({
+    status: 'connected',
+    token_expires_at: { $ne: null, $lt: cutoff },
+  })
+    .select('_id platform')
+    .lean()
+    .exec() as Array<{ _id: string; platform: string }>;
 
-  logger.info(`Found ${rows.length} tokens expiring soon`);
+  logger.info(`Found ${accounts.length} tokens expiring soon`);
 
-  for (const account of rows) {
-    await refreshAccountToken(account.id);
-    // Small delay to avoid rate limiting
+  for (const account of accounts) {
+    await refreshAccountToken(account._id);
     await new Promise(r => setTimeout(r, 500));
   }
 }

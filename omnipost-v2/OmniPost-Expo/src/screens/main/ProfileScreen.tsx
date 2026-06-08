@@ -1,6 +1,7 @@
 // src/screens/main/ProfileScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import { Spacing, useTheme, Colors } from '../../constants/theme';
 import { Card, Button, Badge, PlatformIcon, InputField, Toggle, Divider } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
@@ -13,7 +14,7 @@ export default function ProfileScreen({ navigation }: any) {
   const { colors } = useTheme();
   const s = React.useMemo(() => getStyles(colors), [colors]);
   const [tab, setTab] = useState<SettingsTab>('profile');
-  const { user, logout } = useAuthStore();
+  const { user, logout, isAuthenticated } = useAuthStore();
   const [name, setName] = useState(user?.name ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
   const [notifs, setNotifs] = useState({ success: true, failed: true, tokenExpiry: true, scheduled: true, weekly: false });
@@ -34,10 +35,19 @@ export default function ProfileScreen({ navigation }: any) {
     setSaving(false);
   }
 
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      const rootNav = navigation.getParent()?.getParent();
+      if (rootNav?.dispatch) {
+        rootNav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+      }
+    }
+  }, [isAuthenticated, navigation]);
+
   function handleLogout() {
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: () => logout() },
+      { text: 'Log Out', style: 'destructive', onPress: logout },
     ]);
   }
 
@@ -201,7 +211,7 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
       )}
 
-      <Button label="Log Out" onPress={handleLogout} variant="danger" style={{ marginTop: 20 }} />
+      {/* <Button label="Log Out" onPress={handleLogout} variant="danger" style={{ marginTop: 20 }} /> */}
       <Text style={s.version}>OmniPost v1.0.0 · India 🇮🇳</Text>
       <View style={{ height: 48 }} />
     </ScrollView>

@@ -102,6 +102,23 @@ export function tokenExpiredEmail(name: string, platform: string): string {
   `;
 }
 
+export function passwordResetEmail(name: string, code: string): string {
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#080C14;color:#EEF2FF;padding:32px;border-radius:16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+        <div style="width:40px;height:40px;background:#6366F1;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">🔐</div>
+        <span style="font-size:22px;font-weight:900">OmniPost</span>
+      </div>
+      <h1 style="font-size:24px;margin-bottom:8px">Reset your password</h1>
+      <p style="color:#8FA3BE;line-height:1.7">Hi ${name}, use the code below to reset your password. It expires in 15 minutes.</p>
+      <div style="margin:24px 0;padding:20px;background:#101B2E;border-radius:12px;border:1px solid #1C2C44;text-align:center">
+        <span style="font-size:32px;font-weight:900;letter-spacing:8px;color:#6366F1">${code}</span>
+      </div>
+      <p style="color:#435972;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
+    </div>
+  `;
+}
+
 export function invoiceEmail(name: string, plan: string, amount: number, invoiceId: string): string {
   return `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;background:#080C14;color:#EEF2FF;padding:32px;border-radius:16px">

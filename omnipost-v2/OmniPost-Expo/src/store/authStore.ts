@@ -28,8 +28,10 @@ export const useAuthStore = create<AuthState>()(
       updateUser: (updates) =>
         set((s) => ({ user: s.user ? { ...s.user, ...updates } : null })),
 
-      logout: () =>
-        set({ user: null, accessToken: null, isAuthenticated: false }),
+      logout: () => {
+        AsyncStorage.removeItem('omnipost-auth').catch(() => {});
+        set({ user: null, accessToken: null, isAuthenticated: false });
+      },
     }),
     {
       name:    'omnipost-auth',

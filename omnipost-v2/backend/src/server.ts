@@ -33,9 +33,11 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin:      process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.NODE_ENV === 'production'
+    ? (process.env.FRONTEND_URL || 'http://localhost:5173')
+    : true,
   credentials: true,
-  methods:     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
@@ -105,12 +107,38 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   });
 });
 
+// ── Process-level handlers ─────────────────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught exception:', error);
+  process.exit(1);
+});
+
 // ── Start server ─────────────────────────────────────────────────
 (async () => {
-  await connectDB();
-  app.listen(PORT, () => {
-    logger.info(`🚀 OmniPost API running on port ${PORT} [${process.env.NODE_ENV}]`);
-  });
+  try {
+    await connectDB();
+
+    const server = app.listen(PORT, () => {
+      logger.info(`🚀 OmniPost API running on port ${PORT} [${process.env.NODE_ENV}]`);
+    });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${PORT} is already in use. Another process may be running on this port.`);
+      } else {
+        logger.error('Server error:', error);
+      }
+      process.exit(1);
+    });
+  } catch (error) {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
 })();
 
 export default app;

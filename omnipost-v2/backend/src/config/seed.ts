@@ -3,22 +3,21 @@
 
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { v4 as uuid } from 'uuid';
-import { connectDB, getDb, mongoClient } from './database';
+import { connectDB, disconnectDB } from './database';
+import User from '../models/User';
 import { logger } from './logger';
 
 async function seed() {
   logger.info('🌱 Seeding demo data...');
   await connectDB();
 
-  const users = getDb().collection('users');
   const demoEmail = 'demo@omnipost.in';
   const normalizedEmail = demoEmail.toLowerCase();
   const passHash = await bcrypt.hash('Demo@123', 12);
 
-  const existing = await users.findOne({ email: normalizedEmail });
+  const existing = await User.findOne({ email: normalizedEmail }).exec();
   if (!existing) {
-    await users.insertOne({
+    await User.create({
       name: 'Priya Sharma',
       email: normalizedEmail,
       mobile: '+919876543210',
@@ -32,7 +31,7 @@ async function seed() {
   logger.info('✅ Demo user: demo@omnipost.in / Demo@123');
   logger.info('🎉 Seed complete!');
 
-  await mongoClient?.close();
+  await disconnectDB();
 }
 
 seed().catch(err => {

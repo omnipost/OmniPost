@@ -108,12 +108,14 @@ export interface Notification {
 
 // Navigation types
 export type RootStackParamList = {
-  Splash:     undefined;
-  Login:      undefined;
-  Register:   undefined;
-  OTPVerify:  { mobile: string };
-  Onboarding: undefined;
-  Main:       undefined;
+  Splash:          undefined;
+  Login:           undefined;
+  Register:        undefined;
+  ForgotPassword:  undefined;
+  ResetPassword:   { email: string };
+  OTPVerify:       { mobile: string };
+  Onboarding:      undefined;
+  Main:            undefined;
 };
 
 export type MainTabParamList = {

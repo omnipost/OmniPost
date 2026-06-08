@@ -2,23 +2,15 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { ObjectId } from 'mongodb';
-import { getDb } from '../config/database';
+import mongoose from 'mongoose';
+import User, { IUserDocument } from '../models/User';
+import PasswordReset from '../models/PasswordReset';
 import { logger } from '../config/logger';
+import { sendEmail, passwordResetEmail } from '../services/notifications';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret_replace_in_prod';
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
-
-interface UserDoc {
-  _id?: any;
-  name: string;
-  email: string;
-  mobile?: string;
-  passwordHash?: string;
-  plan: string;
-  isVerified: boolean;
-  createdAt: Date;
-}
+const RESET_EXPIRY_MS = 15 * 60 * 1000;
 
 const otpStore = new Map<string, { hash: string; expiresAt: number }>();
 
@@ -36,7 +28,7 @@ function fail(res: Response, status: number, error: string) {
   return res.status(status).json({ success: false, error });
 }
 
-function formatUser(user: UserDoc & { _id: any }) {
+function formatUser(user: IUserDocument) {
   return {
     id: user._id.toString(),
     name: user.name,
@@ -47,10 +39,6 @@ function formatUser(user: UserDoc & { _id: any }) {
   };
 }
 
-function getUsersCollection() {
-  return getDb().collection<UserDoc>('users');
-}
-
 /* ── Register ─────────────────────────────────────────────── */
 export async function register(req: Request, res: Response) {
   try {
@@ -59,25 +47,26 @@ export async function register(req: Request, res: Response) {
     if (!name || !email || !password)
       return fail(res, 400, 'name, email and password are required');
 
-    const users = getUsersCollection();
     const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedMobile = mobile ? String(mobile).trim() : undefined;
 
-    const existing = await users.findOne({ email: normalizedEmail });
+    const existing = await User.findOne({ email: normalizedEmail }).exec();
     if (existing) return fail(res, 409, 'Email already registered');
 
     const passwordHash = await bcrypt.hash(password, 12);
     const createdAt = new Date();
-    const result = await users.insertOne({
+
+    const createdUser = await User.create({
       name: name.trim(),
       email: normalizedEmail,
-      mobile: mobile ? String(mobile).trim() : undefined,
+      ...(normalizedMobile ? { mobile: normalizedMobile } : {}),
       passwordHash,
       plan: 'free',
       isVerified: false,
       createdAt,
     });
 
-    const user = formatUser({ _id: result.insertedId, name: name.trim(), email: normalizedEmail, mobile: mobile ? String(mobile).trim() : undefined, plan: 'free', isVerified: false, createdAt });
+    const user = formatUser(createdUser);
     const token = signToken(user.id);
 
     logger.info(`New user registered: ${normalizedEmail}`);
@@ -96,9 +85,8 @@ export async function login(req: Request, res: Response) {
     if (!email || !password)
       return fail(res, 400, 'email and password are required');
 
-    const users = getUsersCollection();
     const normalizedEmail = String(email).trim().toLowerCase();
-    const user = await users.findOne({ email: normalizedEmail });
+    const user = await User.findOne({ email: normalizedEmail }).exec();
     if (!user || !user.passwordHash)
       return fail(res, 401, 'Invalid credentials');
 
@@ -107,7 +95,7 @@ export async function login(req: Request, res: Response) {
 
     const token = signToken(user._id.toString());
     logger.info(`User logged in: ${normalizedEmail}`);
-    return ok(res, { user: formatUser({ ...user, _id: user._id }), accessToken: token });
+    return ok(res, { user: formatUser(user), accessToken: token });
   } catch (err: unknown) {
     logger.error('Login error:', err);
     return fail(res, 500, 'Login failed');
@@ -148,13 +136,12 @@ export async function verifyOtp(req: Request, res: Response) {
     if (!valid) return fail(res, 400, 'Invalid OTP');
     otpStore.delete(String(mobile).trim());
 
-    const users = getUsersCollection();
     const normalizedMobile = String(mobile).trim();
-    let user = await users.findOne({ mobile: normalizedMobile });
+    let user = await User.findOne({ mobile: normalizedMobile }).exec();
 
     if (!user) {
       const createdAt = new Date();
-      const result = await users.insertOne({
+      user = await User.create({
         name: `User ${normalizedMobile.slice(-4)}`,
         email: `${normalizedMobile}@omnipost.local`,
         mobile: normalizedMobile,
@@ -162,11 +149,10 @@ export async function verifyOtp(req: Request, res: Response) {
         isVerified: true,
         createdAt,
       });
-      user = { _id: result.insertedId, name: `User ${normalizedMobile.slice(-4)}`, email: `${normalizedMobile}@omnipost.local`, mobile: normalizedMobile, plan: 'free', isVerified: true, createdAt };
     }
 
     const token = signToken(user._id.toString());
-    return ok(res, { user: formatUser({ ...user, _id: user._id }), accessToken: token });
+    return ok(res, { user: formatUser(user), accessToken: token });
   } catch (err: unknown) {
     logger.error('verifyOtp error:', err);
     return fail(res, 500, 'OTP verification failed');
@@ -179,14 +165,91 @@ export async function getMe(req: Request, res: Response) {
     const userId = (req as any).userId;
     if (!userId) return fail(res, 401, 'Unauthorized');
 
-    const users = getUsersCollection();
-    const user = await users.findOne({ _id: new ObjectId(userId) });
+    if (!mongoose.isValidObjectId(userId)) {
+      return fail(res, 400, 'Invalid user ID');
+    }
+
+    const user = await User.findById(userId).exec();
     if (!user) return fail(res, 404, 'User not found');
 
-    return ok(res, formatUser({ ...user, _id: user._id }));
+    return ok(res, formatUser(user));
   } catch (err: unknown) {
     logger.error('getMe error:', err);
     return fail(res, 500, 'Failed to fetch user');
+  }
+}
+
+/* ── Forgot password ──────────────────────────────────────── */
+export async function forgotPassword(req: Request, res: Response) {
+  try {
+    const { email } = req.body;
+    if (!email) return fail(res, 400, 'email is required');
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await User.findOne({ email: normalizedEmail }).exec();
+
+    const message = 'If that email is registered, a reset code has been sent.';
+    if (!user) return ok(res, { message });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeHash = await bcrypt.hash(code, 10);
+    const expiresAt = new Date(Date.now() + RESET_EXPIRY_MS);
+
+    await PasswordReset.findOneAndUpdate(
+      { email: normalizedEmail },
+      { email: normalizedEmail, codeHash, expiresAt, createdAt: new Date() },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).exec();
+
+    try {
+      await sendEmail({
+        to: normalizedEmail,
+        subject: 'Reset your OmniPost password',
+        html: passwordResetEmail(user.name, code),
+      });
+    } catch (emailErr) {
+      logger.warn(`Email not sent for ${normalizedEmail} — reset code logged for dev: ${code}`);
+    }
+
+    const payload: Record<string, string> = { message };
+    if (process.env.NODE_ENV !== 'production') {
+      payload.devCode = code;
+    }
+    return ok(res, payload);
+  } catch (err: unknown) {
+    logger.error('forgotPassword error:', err);
+    return fail(res, 500, 'Failed to process password reset request');
+  }
+}
+
+/* ── Reset password ───────────────────────────────────────── */
+export async function resetPassword(req: Request, res: Response) {
+  try {
+    const { email, code, password } = req.body;
+    if (!email || !code || !password)
+      return fail(res, 400, 'email, code and password are required');
+    if (String(password).length < 8)
+      return fail(res, 400, 'Password must be at least 8 characters');
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const resetDoc = await PasswordReset.findOne({ email: normalizedEmail }).exec();
+
+    if (!resetDoc || resetDoc.expiresAt < new Date())
+      return fail(res, 400, 'Reset code expired or invalid');
+
+    const validCode = await bcrypt.compare(String(code).trim(), resetDoc.codeHash);
+    if (!validCode) return fail(res, 400, 'Invalid reset code');
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const user = await User.findOneAndUpdate({ email: normalizedEmail }, { passwordHash }, { new: true }).exec();
+    if (!user) return fail(res, 404, 'User not found');
+
+    await PasswordReset.deleteOne({ email: normalizedEmail }).exec();
+
+    return ok(res, formatUser(user), 'Password reset successfully');
+  } catch (err: unknown) {
+    logger.error('resetPassword error:', err);
+    return fail(res, 500, 'Failed to reset password');
   }
 }
 
