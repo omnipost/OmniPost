@@ -16,6 +16,12 @@ const getDevHost = (): string => {
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || `http://${getDevHost()}:4000/api`;
 
+// Debug helper: print resolved backend URL when app starts (remove in production)
+try {
+  // eslint-disable-next-line no-console
+  console.log('BASE_URL', BASE_URL);
+} catch (e) {}
+
 const api = axios.create({
   baseURL: BASE_URL,
   timeout: 30_000,

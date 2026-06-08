@@ -43,8 +43,8 @@ function TabBar({ state, descriptors, navigation }: any) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
-  // Show Profile tab only for medium+ widths (responsive)
-  const showProfile = width >= 768; // 'medium' breakpoint
+  // Always show Profile tab on mobile and web
+  const showProfile = true;
   const visibleRoutes = state.routes.filter((r: any) => (r.name !== 'Profile') ? true : showProfile);
   const tabWidth = Math.max(64, width / Math.max(1, visibleRoutes.length));
 
