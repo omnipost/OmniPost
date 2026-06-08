@@ -14,7 +14,7 @@ const getDevHost = (): string => {
   return 'localhost';
 };
 
-export const BASE_URL = `http://${getDevHost()}:4000/api`;
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL || `http://${getDevHost()}:4000/api`;
 
 const api = axios.create({
   baseURL: BASE_URL,

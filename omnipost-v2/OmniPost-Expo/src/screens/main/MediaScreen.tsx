@@ -169,7 +169,7 @@ export default function MediaScreen() {
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
   root:            { flex: 1, backgroundColor: colors.bg0 },
-  content:         { padding: Spacing.lg, paddingTop: 8 },
+  content:         { padding: Spacing.lg, paddingTop: 12 },
   header:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, paddingBottom: 8 },
   headerTitle:     { fontSize: 13, color: colors.textSec },
   headerActions:   { flexDirection: 'row', gap: 8 },

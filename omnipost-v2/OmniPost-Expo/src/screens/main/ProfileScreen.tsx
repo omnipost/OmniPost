@@ -1,7 +1,8 @@
 // src/screens/main/ProfileScreen.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacing, useTheme, Colors } from '../../constants/theme';
 import { Card, Button, Badge, PlatformIcon, InputField, Toggle, Divider } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
@@ -14,7 +15,7 @@ export default function ProfileScreen({ navigation }: any) {
   const { colors } = useTheme();
   const s = React.useMemo(() => getStyles(colors), [colors]);
   const [tab, setTab] = useState<SettingsTab>('profile');
-  const { user, logout, isAuthenticated } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const [name, setName] = useState(user?.name ?? '');
   const [bio, setBio] = useState(user?.bio ?? '');
   const [notifs, setNotifs] = useState({ success: true, failed: true, tokenExpiry: true, scheduled: true, weekly: false });
@@ -35,19 +36,21 @@ export default function ProfileScreen({ navigation }: any) {
     setSaving(false);
   }
 
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      const rootNav = navigation.getParent()?.getParent();
-      if (rootNav?.dispatch) {
-        rootNav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-      }
-    }
-  }, [isAuthenticated, navigation]);
-
   function handleLogout() {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) {
+        logout();
+      }
+      return;
+    }
+    
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Log Out', style: 'destructive', onPress: logout },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: () => logout(),
+      },
     ]);
   }
 
@@ -211,7 +214,7 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
       )}
 
-      {/* <Button label="Log Out" onPress={handleLogout} variant="danger" style={{ marginTop: 20 }} /> */}
+      <Button label="Log Out" onPress={handleLogout} variant="danger" style={{ marginTop: 20 }} />
       <Text style={s.version}>OmniPost v1.0.0 · India 🇮🇳</Text>
       <View style={{ height: 48 }} />
     </ScrollView>
@@ -220,7 +223,7 @@ export default function ProfileScreen({ navigation }: any) {
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg0 },
-  content: { padding: Spacing.lg },
+  content: { padding: Spacing.lg, paddingTop: 12 },
   userHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 },
   avatar: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 22, fontWeight: '900', color: colors.brand },

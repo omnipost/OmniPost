@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import AuthLayout from '../../components/AuthLayout';
@@ -50,8 +50,8 @@ export default function RegisterScreen({ navigation }: Props) {
       setAuth(user, accessToken);
       Toast.show({ type: 'success', text1: 'Account created!', text2: 'Welcome to OmniPost' });
       navigation.replace('Onboarding');
-    } catch (error) {
-      setError(getApiError(error, 'Could not create account.'));
+    } catch (err) {
+      setError(getApiError(err, 'Could not create account.'));
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export default function RegisterScreen({ navigation }: Props) {
         placeholder="Min. 8 characters"
       />
       {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
-      <Text style={[styles.hint, { color: colors.textMuted }]}>
+      <Text style={[styles.hint, { color: colors.textMuted }]}> 
         By signing up you agree to our Terms of Service and Privacy Policy.
       </Text>
 

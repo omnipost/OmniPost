@@ -1,7 +1,8 @@
 import Bull from 'bull';
 import { logger } from './logger';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL as string;
+if (!REDIS_URL) throw new Error("REDIS_URL is not defined in .env");
 
 /* ── Publish Queue ─────────────────────────────────────────── */
 export const publishQueue = new Bull('omnipost:publish', REDIS_URL, {

@@ -209,7 +209,7 @@ export default function ComposeScreen({ navigation }: any) {
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
   root:           { flex: 1, backgroundColor: colors.bg0 },
-  content:        { padding: Spacing.lg },
+  content:        { padding: Spacing.lg, paddingTop: 12 },
   sectionLabel:   { fontSize: 10, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 16 },
   sectionRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 },
   accountRow:     { gap: 8, paddingBottom: 4 },

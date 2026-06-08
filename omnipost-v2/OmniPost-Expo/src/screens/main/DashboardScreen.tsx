@@ -110,9 +110,9 @@ export default function DashboardScreen({ navigation }: any) {
             {expired.length > 0 && ` · ⚠️ ${expired.length} token expired`}
           </Text>
         </View>
-        <TouchableOpacity onPress={openComposer} style={styles.createBtn}>
-          <Text style={styles.createBtnText}>+ New Post</Text>
-        </TouchableOpacity>
+        {/* <TouchableOpacity onPress={openComposer} style={styles.createBtn}>
+          <Text style={styles.createBtnText}></Text>
+        </TouchableOpacity> */}
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll} contentContainerStyle={{ gap: 8 }}>

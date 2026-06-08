@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import AuthLayout from '../../components/AuthLayout';
 import { Button, InputField } from '../../components/UI';
-import { Spacing, useTheme } from '../../constants/theme';
+import { useTheme } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
 import { authApi } from '../../services/api';
 import { parseAuthResponse, getApiError } from '../../utils/authHelpers';
@@ -17,7 +17,6 @@ export default function LoginScreen({ navigation }: Props) {
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const { setAuth } = useAuthStore();
@@ -38,8 +37,9 @@ export default function LoginScreen({ navigation }: Props) {
       const { user, accessToken } = parseAuthResponse(res);
       setAuth(user, accessToken);
       Toast.show({ type: 'success', text1: 'Welcome back!', text2: `Signed in as ${user.name}` });
-    } catch (error) {
-      setError(getApiError(error, 'Invalid email or password.'));
+      navigation.replace('Main');
+    } catch (err) {
+      setError(getApiError(err, 'Sign in failed.'));
     } finally {
       setLoading(false);
     }
@@ -51,9 +51,7 @@ export default function LoginScreen({ navigation }: Props) {
       subtitle="Sign in to manage your social posts from one place."
       footer={
         <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: colors.textSec }]}>
-            Don't have an account?{' '}
-          </Text>
+          <Text style={[styles.footerText, { color: colors.textSec }]}>Don't have an account?{' '}</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
             <Text style={[styles.footerLink, { color: colors.brand }]}>Create account</Text>
           </TouchableOpacity>
@@ -75,16 +73,14 @@ export default function LoginScreen({ navigation }: Props) {
             label="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!showPass}
+            secureTextEntry
             placeholder="Enter your password"
           />
         </View>
-        <TouchableOpacity onPress={() => setShowPass(!showPass)} style={styles.eyeBtn}>
-          <Text style={styles.eyeIcon}>{showPass ? '🙈' : '👁️'}</Text>
-        </TouchableOpacity>
       </View>
 
       {error ? <Text style={[styles.errorText, { color: colors.danger }]}>{error}</Text> : null}
+
       <TouchableOpacity
         onPress={() => navigation.navigate('ForgotPassword')}
         style={styles.forgotRow}
@@ -99,10 +95,8 @@ export default function LoginScreen({ navigation }: Props) {
 
 const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
   StyleSheet.create({
-    passRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
-    eyeBtn: { padding: 12, marginBottom: 14 },
-    eyeIcon: { fontSize: 18 },
     errorText: { marginBottom: 10, fontSize: 13, fontWeight: '600' },
+    passRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
     forgotRow: { alignItems: 'flex-end', marginBottom: 4, marginTop: -4 },
     forgotText: { fontSize: 13, fontWeight: '600' },
     footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 24 },
