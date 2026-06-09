@@ -4,13 +4,22 @@ import axios, { AxiosError } from 'axios';
 import Constants from 'expo-constants';
 
 // Auto-detect host IP when running in Expo Go so physical devices can reach the
-// backend without editing this file. Falls back to localhost for web/emulator.
+// backend without editing this file.
+// Priority: EXPO_PUBLIC_API_URL env var → Expo debuggerHost → browser hostname → localhost
 const getDevHost = (): string => {
+  // 1. Expo native: manifest carries the bundler host IP (e.g. "192.168.1.5:19000")
   const manifestAny: any = (Constants as any).manifest || (Constants as any).expoConfig || {};
-  const debuggerHost = manifestAny.debuggerHost || manifestAny.hostUri || '';
-  if (typeof debuggerHost === 'string' && debuggerHost.includes(':')) {
+  const debuggerHost: string = manifestAny.debuggerHost || manifestAny.hostUri || '';
+  if (debuggerHost.includes(':')) {
     return debuggerHost.split(':')[0];
   }
+
+  // 2. Web browser: use the hostname the page was served from so the API call
+  //    goes to the same machine (avoids the localhost → LAN mismatch).
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    return window.location.hostname;
+  }
+
   return 'localhost';
 };
 
@@ -49,6 +58,13 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// ── User profile ───────────────────────────────────────────────
+export const usersApi = {
+  getProfile: () => api.get('/users/profile'),
+  updateProfile: (data: { name?: string; bio?: string; mobile?: string }) =>
+    api.patch('/users/profile', data),
+};
 
 // ── Auth endpoints ─────────────────────────────────────────────
 export const authApi = {
