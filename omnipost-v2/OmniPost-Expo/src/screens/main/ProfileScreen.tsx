@@ -1,12 +1,15 @@
 // src/screens/main/ProfileScreen.tsx
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
-import { CommonActions } from '@react-navigation/native';
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Alert, Platform, ActivityIndicator,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Spacing, useTheme, Colors } from '../../constants/theme';
 import { Card, Button, Badge, PlatformIcon, InputField, Toggle, Divider } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
 import { MOCK_ACCOUNTS } from '../../services/mockData';
+import { usersApi } from '../../services/api';
 import Toast from 'react-native-toast-message';
 
 type SettingsTab = 'profile' | 'accounts' | 'notifications' | 'security' | 'billing';
@@ -15,49 +18,194 @@ export default function ProfileScreen({ navigation }: any) {
   const { colors } = useTheme();
   const s = React.useMemo(() => getStyles(colors), [colors]);
   const [tab, setTab] = useState<SettingsTab>('profile');
-  const { user, logout } = useAuthStore();
-  const [name, setName] = useState(user?.name ?? '');
-  const [bio, setBio] = useState(user?.bio ?? '');
-  const [notifs, setNotifs] = useState({ success: true, failed: true, tokenExpiry: true, scheduled: true, weekly: false });
+  const { user, logout, updateUser } = useAuthStore();
+
+  // ── Edit-mode state ────────────────────────────────────────────
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Editable draft fields (only committed on Save)
+  const [draftName,   setDraftName]   = useState(user?.name   ?? '');
+  const [draftBio,    setDraftBio]    = useState(user?.bio    ?? '');
+  const [draftMobile, setDraftMobile] = useState(user?.mobile ?? '');
+
+  // Notification prefs (local-only for now)
+  const [notifs, setNotifs] = useState({
+    success: true, failed: true, tokenExpiry: true, scheduled: true, weekly: false,
+  });
+
   const TABS: { id: SettingsTab; label: string; emoji: string }[] = [
-    { id: 'profile', label: 'Profile', emoji: '👤' },
-    { id: 'accounts', label: 'Accounts', emoji: '🔗' },
+    { id: 'profile',       label: 'Profile',       emoji: '👤' },
+    { id: 'accounts',      label: 'Accounts',      emoji: '🔗' },
     { id: 'notifications', label: 'Notifications', emoji: '🔔' },
-    { id: 'security', label: 'Security', emoji: '🔒' },
-    { id: 'billing', label: 'Billing', emoji: '💳' },
+    { id: 'security',      label: 'Security',      emoji: '🔒' },
+    { id: 'billing',       label: 'Billing',       emoji: '💳' },
   ];
 
-  async function saveProfile() {
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 800));
-    Toast.show({ type: 'success', text1: 'Profile updated!' });
-    setSaving(false);
+  // ── Enter edit mode ────────────────────────────────────────────
+  function startEditing() {
+    // Reload drafts from current store values each time edit is opened
+    setDraftName(user?.name ?? '');
+    setDraftBio(user?.bio ?? '');
+    setDraftMobile(user?.mobile ?? '');
+    setIsEditing(true);
   }
 
-  function handleLogout() {
-    if (Platform.OS === 'web') {
-      if (window.confirm('Are you sure you want to log out?')) {
-        logout();
-      }
+  // ── Cancel edits ───────────────────────────────────────────────
+  function cancelEditing() {
+    setIsEditing(false);
+    // Drafts will be re-seeded from store next time edit opens
+  }
+
+  // ── Save to database ───────────────────────────────────────────
+  async function saveProfile() {
+    if (!draftName.trim()) {
+      Toast.show({ type: 'error', text1: 'Name cannot be empty' });
       return;
     }
-    
+    setSaving(true);
+    try {
+      const { data: res } = await usersApi.updateProfile({
+        name:   draftName.trim(),
+        bio:    draftBio.trim(),
+        mobile: draftMobile.trim() || undefined,
+      });
+      if (res.success) {
+        updateUser({
+          name:   res.data.name,
+          bio:    res.data.bio,
+          mobile: res.data.mobile ?? undefined,
+        });
+        Toast.show({ type: 'success', text1: '✓ Profile saved', text2: 'Your details are updated' });
+        setIsEditing(false);
+      } else {
+        Toast.show({ type: 'error', text1: res.error ?? 'Update failed' });
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.error ?? 'Failed to save profile';
+      Toast.show({ type: 'error', text1: msg });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Logout ─────────────────────────────────────────────────────
+  function handleLogout() {
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to log out?')) logout();
+      return;
+    }
     Alert.alert('Log Out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: () => logout(),
-      },
+      { text: 'Log Out', style: 'destructive', onPress: () => logout() },
     ]);
   }
 
+  // ── Profile tab content ────────────────────────────────────────
+  const ProfileTab = useCallback(() => (
+    <Card>
+      {/* Header row: title + Edit / Cancel button */}
+      <View style={s.sectionHeaderRow}>
+        <Text style={s.sectionTitle}>Profile Information</Text>
+        {isEditing ? (
+          <TouchableOpacity onPress={cancelEditing} style={s.cancelBtn}>
+            <Text style={s.cancelBtnText}>✕ Cancel</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={startEditing} style={s.editBtn}>
+            <Text style={s.editBtnText}>✏️ Edit</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Full Name */}
+      <View style={s.fieldBlock}>
+        <Text style={s.fieldLabel}>FULL NAME</Text>
+        {isEditing ? (
+          <InputField
+            value={draftName}
+            onChangeText={setDraftName}
+            placeholder="Your name"
+          />
+        ) : (
+          <View style={s.readonlyField}>
+            <Text style={s.readonlyText}>{user?.name || '—'}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Email – always read-only */}
+      <View style={s.fieldBlock}>
+        <Text style={s.fieldLabel}>EMAIL</Text>
+        <View style={[s.readonlyField, s.readonlyDisabled]}>
+          <Text style={[s.readonlyText, { color: colors.textMuted }]}>{user?.email || '—'}</Text>
+        </View>
+      </View>
+
+      {/* Mobile */}
+      <View style={s.fieldBlock}>
+        <Text style={s.fieldLabel}>MOBILE</Text>
+        {isEditing ? (
+          <InputField
+            value={draftMobile}
+            onChangeText={setDraftMobile}
+            placeholder="+91 98765 43210"
+            keyboardType="phone-pad"
+          />
+        ) : (
+          <View style={s.readonlyField}>
+            <Text style={s.readonlyText}>{user?.mobile || '—'}</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Bio */}
+      <View style={s.fieldBlock}>
+        <Text style={s.fieldLabel}>BIO</Text>
+        {isEditing ? (
+          <InputField
+            value={draftBio}
+            onChangeText={setDraftBio}
+            multiline
+            placeholder="Tell your audience about yourself"
+          />
+        ) : (
+          <View style={[s.readonlyField, { minHeight: 64 }]}>
+            <Text style={[s.readonlyText, !user?.bio && { color: colors.textMuted }]}>
+              {user?.bio || 'No bio added yet'}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Language – always read-only */}
+      <View style={s.fieldBlock}>
+        <Text style={s.fieldLabel}>LANGUAGE</Text>
+        <View style={[s.readonlyField, s.readonlyDisabled]}>
+          <Text style={[s.readonlyText, { color: colors.textMuted }]}>English</Text>
+        </View>
+      </View>
+
+      {/* Save Changes – only shown in edit mode */}
+      {isEditing && (
+        <Button
+          label={saving ? 'Saving…' : 'Save Changes'}
+          onPress={saveProfile}
+          loading={saving}
+          style={{ marginTop: 8 }}
+        />
+      )}
+    </Card>
+  ), [isEditing, draftName, draftBio, draftMobile, user, saving, colors]);
+
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+      {/* ── User header card ── */}
       <View style={s.userHeader}>
-        <View style={s.avatar}><Text style={s.avatarText}>{user?.name?.[0] ?? 'P'}</Text></View>
+        <View style={s.avatar}>
+          <Text style={s.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'P'}</Text>
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={s.userName}>{user?.name}</Text>
           <Text style={s.userEmail}>{user?.email}</Text>
@@ -68,6 +216,7 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
       </View>
 
+      {/* ── Tab bar ── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabRow}>
         {TABS.map(t => (
           <TouchableOpacity key={t.id} onPress={() => setTab(t.id)} style={[s.tabBtn, tab === t.id && s.tabBtnActive]}>
@@ -77,17 +226,8 @@ export default function ProfileScreen({ navigation }: any) {
         ))}
       </ScrollView>
 
-      {tab === 'profile' && (
-        <Card>
-          <Text style={s.sectionTitle}>Profile Information</Text>
-          <InputField label="Full Name" value={name} onChangeText={setName} placeholder="Your name" />
-          <InputField label="Email" value={user?.email ?? ''} editable={false} placeholder="email@example.com" />
-          <InputField label="Mobile" value={user?.mobile ?? ''} keyboardType="phone-pad" placeholder="+91 98765 43210" />
-          <InputField label="Bio" value={bio} onChangeText={setBio} multiline placeholder="Tell your audience about yourself" />
-          <InputField label="Language" value="English" editable={false} />
-          <Button label="Save Changes" onPress={saveProfile} loading={saving} style={{ marginTop: 4 }} />
-        </Card>
-      )}
+      {/* ── Tab content ── */}
+      {tab === 'profile' && <ProfileTab />}
 
       {tab === 'accounts' && (
         <View>
@@ -136,11 +276,11 @@ export default function ProfileScreen({ navigation }: any) {
         <Card>
           <Text style={s.sectionTitle}>Notification Preferences</Text>
           {[
-            { key: 'success', label: 'Post published', desc: 'When all platforms succeed' },
-            { key: 'failed', label: 'Post failed', desc: 'When publishing fails' },
-            { key: 'tokenExpiry', label: 'Token expiry', desc: 'Before platform token expires' },
-            { key: 'scheduled', label: 'Scheduled reminder', desc: '15 min before scheduled posts' },
-            { key: 'weekly', label: 'Weekly report', desc: 'Analytics summary every Monday' },
+            { key: 'success',     label: 'Post published',      desc: 'When all platforms succeed' },
+            { key: 'failed',      label: 'Post failed',         desc: 'When publishing fails' },
+            { key: 'tokenExpiry', label: 'Token expiry',        desc: 'Before platform token expires' },
+            { key: 'scheduled',   label: 'Scheduled reminder',  desc: '15 min before scheduled posts' },
+            { key: 'weekly',      label: 'Weekly report',       desc: 'Analytics summary every Monday' },
           ].map(item => (
             <View key={item.key} style={s.notifRow}>
               <View style={{ flex: 1 }}>
@@ -222,45 +362,73 @@ export default function ProfileScreen({ navigation }: any) {
 }
 
 const getStyles = (colors: typeof Colors) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg0 },
+  root:    { flex: 1, backgroundColor: colors.bg0 },
   content: { padding: Spacing.lg, paddingTop: 12 },
-  userHeader: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 },
-  avatar: { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 22, fontWeight: '900', color: colors.brand },
-  userName: { fontSize: 16, fontWeight: '800', color: colors.text },
-  userEmail: { fontSize: 12, color: colors.textMuted },
-  tabRow: { gap: 8, marginBottom: 16 },
-  tabBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
-  tabBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  tabEmoji: { fontSize: 13 },
-  tabLabel: { fontSize: 12, color: colors.textSec, fontWeight: '600' },
-  tabLabelActive: { color: colors.white },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text, marginBottom: 14 },
-  sectionSub: { fontSize: 12, color: colors.textMuted, marginBottom: 10, marginTop: -8 },
-  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  accountName: { fontSize: 13, fontWeight: '700', color: colors.text },
-  accountSub: { fontSize: 11, color: colors.textMuted },
-  reconnectBtn: { backgroundColor: colors.brand, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7 },
-  reconnectText: { fontSize: 12, fontWeight: '700', color: colors.white },
-  platformGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  platformCard: { width: '30%', alignItems: 'center', padding: 12, backgroundColor: colors.bg3, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 5 },
-  platformCardConnected: { borderColor: colors.success + '44', backgroundColor: colors.successDim },
-  platformName: { fontSize: 11, fontWeight: '600', color: colors.text },
-  platformStatus: { fontSize: 11, fontWeight: '700' },
-  notifRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+
+  // User header
+  userHeader:  { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 },
+  avatar:      { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
+  avatarText:  { fontSize: 22, fontWeight: '900', color: colors.brand },
+  userName:    { fontSize: 16, fontWeight: '800', color: colors.text },
+  userEmail:   { fontSize: 12, color: colors.textMuted },
+
+  // Tabs
+  tabRow:        { gap: 8, marginBottom: 16 },
+  tabBtn:        { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: colors.bg2, borderRadius: 20, borderWidth: 1, borderColor: colors.border },
+  tabBtnActive:  { backgroundColor: colors.brand, borderColor: colors.brand },
+  tabEmoji:      { fontSize: 13 },
+  tabLabel:      { fontSize: 12, color: colors.textSec, fontWeight: '600' },
+  tabLabelActive:{ color: colors.white },
+
+  // Profile tab
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  sectionTitle:     { fontSize: 15, fontWeight: '800', color: colors.text },
+  sectionSub:       { fontSize: 12, color: colors.textMuted, marginBottom: 10, marginTop: -8 },
+
+  editBtn:       { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.brand + '18', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: colors.brand + '44' },
+  editBtnText:   { fontSize: 13, fontWeight: '700', color: colors.brand },
+  cancelBtn:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.danger + '18', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: colors.danger + '44' },
+  cancelBtnText: { fontSize: 13, fontWeight: '700', color: colors.danger },
+
+  // Field display
+  fieldBlock:      { marginBottom: 14 },
+  fieldLabel:      { fontSize: 10, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.8, marginBottom: 6 },
+  readonlyField:   { backgroundColor: colors.bg3, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 13 },
+  readonlyDisabled:{ backgroundColor: colors.bg0, opacity: 0.7 },
+  readonlyText:    { fontSize: 14, color: colors.text, fontWeight: '500' },
+
+  // Accounts
+  accountRow:           { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  accountName:          { fontSize: 13, fontWeight: '700', color: colors.text },
+  accountSub:           { fontSize: 11, color: colors.textMuted },
+  reconnectBtn:         { backgroundColor: colors.brand, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7 },
+  reconnectText:        { fontSize: 12, fontWeight: '700', color: colors.white },
+  platformGrid:         { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  platformCard:         { width: '30%', alignItems: 'center', padding: 12, backgroundColor: colors.bg3, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 5 },
+  platformCardConnected:{ borderColor: colors.success + '44', backgroundColor: colors.successDim },
+  platformName:         { fontSize: 11, fontWeight: '600', color: colors.text },
+  platformStatus:       { fontSize: 11, fontWeight: '700' },
+
+  // Notifications
+  notifRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   notifLabel: { fontSize: 13, fontWeight: '600', color: colors.text },
-  notifDesc: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  notifDesc:  { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+
+  // Security
   mfaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+
+  // Billing
   planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  planName: { fontSize: 18, fontWeight: '900', color: colors.text },
-  planPrice: { fontSize: 22, fontWeight: '900', color: colors.brand },
-  planPer: { fontSize: 13, color: colors.textMuted, fontWeight: '400' },
-  planRenew: { fontSize: 12, color: colors.textMuted },
+  planName:   { fontSize: 18, fontWeight: '900', color: colors.text },
+  planPrice:  { fontSize: 22, fontWeight: '900', color: colors.brand },
+  planPer:    { fontSize: 13, color: colors.textMuted, fontWeight: '400' },
+  planRenew:  { fontSize: 12, color: colors.textMuted },
   paymentRow: { paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: colors.border },
-  paymentItem: { fontSize: 13, color: colors.textSec },
-  paymentNote: { fontSize: 11, color: colors.textMuted, marginTop: 10 },
+  paymentItem:{ fontSize: 13, color: colors.textSec },
+  paymentNote:{ fontSize: 11, color: colors.textMuted, marginTop: 10 },
   invoiceRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
-  invoiceDate: { flex: 1, fontSize: 13, color: colors.textSec },
-  invoiceAmount: { fontSize: 13, fontWeight: '700', color: colors.text, marginRight: 10 },
+  invoiceDate:  { flex: 1, fontSize: 13, color: colors.textSec },
+  invoiceAmount:{ fontSize: 13, fontWeight: '700', color: colors.text, marginRight: 10 },
+
   version: { textAlign: 'center', fontSize: 11, color: colors.textMuted, marginTop: 16 },
 });

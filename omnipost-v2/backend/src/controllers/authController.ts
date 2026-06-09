@@ -24,6 +24,7 @@ function formatUser(user: IUserDocument) {
     name: user.name,
     email: user.email,
     mobile: user.mobile || null,
+    bio: user.bio || '',
     plan: user.plan,
     isVerified: user.isVerified,
   };
