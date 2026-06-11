@@ -155,16 +155,26 @@ export function Toggle({ value, onChange }: { value: boolean; onChange: (v: bool
 
 /* ── InputField ──────────────────────────────────────────────── */
 export function InputField(props: TextInputProps & { label?: string; error?: string; containerStyle?: StyleProp<ViewStyle> }) {
+  console.log("InputField Render");
   const { label, error, style, containerStyle, ...rest } = props;
   const { colors } = useTheme();
   return (
     <View style={[styles.inputWrapper, containerStyle]}>
       {label && <Text style={[styles.inputLabel, { color: colors.textSec }]}>{label}</Text>}
       <TextInput
-        style={[styles.input, { backgroundColor: colors.bg1, color: colors.text, borderColor: colors.border }, style]}
-        placeholderTextColor={colors.textMuted}
-        {...rest}
-      />
+  style={[styles.input,
+    {
+      backgroundColor: colors.bg1,
+      color: colors.text,
+      borderColor: colors.border
+    },
+    style
+  ]}
+  placeholderTextColor={colors.textMuted}
+  onFocus={() => console.log("FOCUS")}
+  onBlur={() => console.log("BLUR")}
+  {...rest}
+/>
       {error && <Text style={[styles.inputError, { color: colors.danger }]}>{error}</Text>}
     </View>
   );

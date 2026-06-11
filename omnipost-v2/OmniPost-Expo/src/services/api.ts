@@ -62,7 +62,7 @@ export default api;
 // ── User profile ───────────────────────────────────────────────
 export const usersApi = {
   getProfile: () => api.get('/users/profile'),
-  updateProfile: (data: { name?: string; bio?: string; mobile?: string }) =>
+  updateProfile: (data: { name?: string; bio?: string; mobile?: string; avatar?: string }) =>
     api.patch('/users/profile', data),
 };
 

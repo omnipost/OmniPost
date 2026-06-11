@@ -1,22 +1,25 @@
 // src/screens/main/ProfileScreen.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Platform, ActivityIndicator,
+  Alert, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Spacing, useTheme, Colors } from '../../constants/theme';
 import { Card, Button, Badge, PlatformIcon, InputField, Toggle, Divider } from '../../components/UI';
 import { useAuthStore } from '../../store/authStore';
 import { MOCK_ACCOUNTS } from '../../services/mockData';
-import { usersApi } from '../../services/api';
+import { usersApi, mediaApi } from '../../services/api';
 import Toast from 'react-native-toast-message';
+import * as ImagePicker from 'expo-image-picker';
 
 type SettingsTab = 'profile' | 'accounts' | 'notifications' | 'security' | 'billing';
 
 export default function ProfileScreen({ navigation }: any) {
   const { colors } = useTheme();
-  const s = React.useMemo(() => getStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const s = React.useMemo(() => getStyles(colors, insets), [colors, insets]);
   const [tab, setTab] = useState<SettingsTab>('profile');
   const { user, logout, updateUser } = useAuthStore();
 
@@ -28,6 +31,8 @@ export default function ProfileScreen({ navigation }: any) {
   const [draftName,   setDraftName]   = useState(user?.name   ?? '');
   const [draftBio,    setDraftBio]    = useState(user?.bio    ?? '');
   const [draftMobile, setDraftMobile] = useState(user?.mobile ?? '');
+  const [draftAvatar, setDraftAvatar] = useState(user?.avatar ?? '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Notification prefs (local-only for now)
   const [notifs, setNotifs] = useState({
@@ -48,6 +53,7 @@ export default function ProfileScreen({ navigation }: any) {
     setDraftName(user?.name ?? '');
     setDraftBio(user?.bio ?? '');
     setDraftMobile(user?.mobile ?? '');
+    setDraftAvatar(user?.avatar ?? '');
     setIsEditing(true);
   }
 
@@ -56,6 +62,47 @@ export default function ProfileScreen({ navigation }: any) {
     setIsEditing(false);
     // Drafts will be re-seeded from store next time edit opens
   }
+
+  // ── Pick Profile Picture ───────────────────────────────────────
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Please allow media library access to upload a profile picture.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      const localUri = asset.uri;
+      const filename = localUri.split('/').pop() || 'profile.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+      setUploadingAvatar(true);
+      try {
+        const response = await mediaApi.upload({ uri: localUri, name: filename, type });
+        if (response.data && response.data.success && response.data.data.length > 0) {
+          const uploadedUrl = response.data.data[0].url;
+          setDraftAvatar(uploadedUrl);
+          Toast.show({ type: 'success', text1: '✓ Photo uploaded' });
+        } else {
+          Toast.show({ type: 'error', text1: 'Upload failed' });
+        }
+      } catch (err) {
+        console.error('Upload avatar error:', err);
+        Toast.show({ type: 'error', text1: 'Failed to upload image' });
+      } finally {
+        setUploadingAvatar(false);
+      }
+    }
+  };
 
   // ── Save to database ───────────────────────────────────────────
   async function saveProfile() {
@@ -69,12 +116,14 @@ export default function ProfileScreen({ navigation }: any) {
         name:   draftName.trim(),
         bio:    draftBio.trim(),
         mobile: draftMobile.trim() || undefined,
+        avatar: draftAvatar || undefined,
       });
       if (res.success) {
         updateUser({
           name:   res.data.name,
           bio:    res.data.bio,
           mobile: res.data.mobile ?? undefined,
+          avatar: res.data.avatar ?? undefined,
         });
         Toast.show({ type: 'success', text1: '✓ Profile saved', text2: 'Your details are updated' });
         setIsEditing(false);
@@ -101,110 +150,17 @@ export default function ProfileScreen({ navigation }: any) {
     ]);
   }
 
-  // ── Profile tab content ────────────────────────────────────────
-  const ProfileTab = useCallback(() => (
-    <Card>
-      {/* Header row: title + Edit / Cancel button */}
-      <View style={s.sectionHeaderRow}>
-        <Text style={s.sectionTitle}>Profile Information</Text>
-        {isEditing ? (
-          <TouchableOpacity onPress={cancelEditing} style={s.cancelBtn}>
-            <Text style={s.cancelBtnText}>✕ Cancel</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={startEditing} style={s.editBtn}>
-            <Text style={s.editBtnText}>✏️ Edit</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Full Name */}
-      <View style={s.fieldBlock}>
-        <Text style={s.fieldLabel}>FULL NAME</Text>
-        {isEditing ? (
-          <InputField
-            value={draftName}
-            onChangeText={setDraftName}
-            placeholder="Your name"
-          />
-        ) : (
-          <View style={s.readonlyField}>
-            <Text style={s.readonlyText}>{user?.name || '—'}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Email – always read-only */}
-      <View style={s.fieldBlock}>
-        <Text style={s.fieldLabel}>EMAIL</Text>
-        <View style={[s.readonlyField, s.readonlyDisabled]}>
-          <Text style={[s.readonlyText, { color: colors.textMuted }]}>{user?.email || '—'}</Text>
-        </View>
-      </View>
-
-      {/* Mobile */}
-      <View style={s.fieldBlock}>
-        <Text style={s.fieldLabel}>MOBILE</Text>
-        {isEditing ? (
-          <InputField
-            value={draftMobile}
-            onChangeText={setDraftMobile}
-            placeholder="+91 98765 43210"
-            keyboardType="phone-pad"
-          />
-        ) : (
-          <View style={s.readonlyField}>
-            <Text style={s.readonlyText}>{user?.mobile || '—'}</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Bio */}
-      <View style={s.fieldBlock}>
-        <Text style={s.fieldLabel}>BIO</Text>
-        {isEditing ? (
-          <InputField
-            value={draftBio}
-            onChangeText={setDraftBio}
-            multiline
-            placeholder="Tell your audience about yourself"
-          />
-        ) : (
-          <View style={[s.readonlyField, { minHeight: 64 }]}>
-            <Text style={[s.readonlyText, !user?.bio && { color: colors.textMuted }]}>
-              {user?.bio || 'No bio added yet'}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Language – always read-only */}
-      <View style={s.fieldBlock}>
-        <Text style={s.fieldLabel}>LANGUAGE</Text>
-        <View style={[s.readonlyField, s.readonlyDisabled]}>
-          <Text style={[s.readonlyText, { color: colors.textMuted }]}>English</Text>
-        </View>
-      </View>
-
-      {/* Save Changes – only shown in edit mode */}
-      {isEditing && (
-        <Button
-          label={saving ? 'Saving…' : 'Save Changes'}
-          onPress={saveProfile}
-          loading={saving}
-          style={{ marginTop: 8 }}
-        />
-      )}
-    </Card>
-  ), [isEditing, draftName, draftBio, draftMobile, user, saving, colors]);
-
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
       {/* ── User header card ── */}
       <View style={s.userHeader}>
         <View style={s.avatar}>
-          <Text style={s.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'P'}</Text>
+          {user?.avatar ? (
+            <Image source={{ uri: user.avatar }} style={s.avatarImage} />
+          ) : (
+            <Text style={s.avatarText}>{user?.name?.[0]?.toUpperCase() ?? 'P'}</Text>
+          )}
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.userName}>{user?.name}</Text>
@@ -227,7 +183,129 @@ export default function ProfileScreen({ navigation }: any) {
       </ScrollView>
 
       {/* ── Tab content ── */}
-      {tab === 'profile' && <ProfileTab />}
+      {tab === 'profile' && (
+        <Card>
+          {/* Header row: title + Edit / Cancel button */}
+          <View style={s.sectionHeaderRow}>
+            <Text style={s.sectionTitle}>Profile Information</Text>
+            {isEditing ? (
+              <TouchableOpacity onPress={cancelEditing} style={s.cancelBtn}>
+                <Text style={s.cancelBtnText}>✕ Cancel</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={startEditing} style={s.editBtn}>
+                <Text style={s.editBtnText}>✏️ Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Profile Picture section - only visible or editable in edit mode */}
+          {isEditing && (
+            <View style={s.avatarEditBlock}>
+              <Text style={s.fieldLabel}>PROFILE PICTURE</Text>
+              <View style={s.avatarEditContainer}>
+                <View style={s.avatarEditWrapper}>
+                  {uploadingAvatar ? (
+                    <ActivityIndicator size="small" color={colors.brand} />
+                  ) : draftAvatar ? (
+                    <Image source={{ uri: draftAvatar }} style={s.avatarEditImage} />
+                  ) : (
+                    <Text style={s.avatarEditText}>{draftName?.[0]?.toUpperCase() ?? 'P'}</Text>
+                  )}
+                </View>
+                <View style={s.avatarEditButtons}>
+                  <TouchableOpacity onPress={pickImage} style={s.changePhotoBtn}>
+                    <Text style={s.changePhotoBtnText}>Change Photo</Text>
+                  </TouchableOpacity>
+                  {draftAvatar ? (
+                    <TouchableOpacity onPress={() => setDraftAvatar('')} style={s.removePhotoBtn}>
+                      <Text style={s.removePhotoBtnText}>Remove</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Full Name */}
+          <View style={s.fieldBlock}>
+            <Text style={s.fieldLabel}>FULL NAME</Text>
+            {isEditing ? (
+              <InputField
+                value={draftName}
+                onChangeText={setDraftName}
+                placeholder="Your name"
+              />
+            ) : (
+              <View style={s.readonlyField}>
+                <Text style={s.readonlyText}>{user?.name || '—'}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Email – always read-only */}
+          <View style={s.fieldBlock}>
+            <Text style={s.fieldLabel}>EMAIL</Text>
+            <View style={[s.readonlyField, s.readonlyDisabled]}>
+              <Text style={[s.readonlyText, { color: colors.textMuted }]}>{user?.email || '—'}</Text>
+            </View>
+          </View>
+
+          {/* Mobile */}
+          <View style={s.fieldBlock}>
+            <Text style={s.fieldLabel}>MOBILE</Text>
+            {isEditing ? (
+              <InputField
+                value={draftMobile}
+                onChangeText={(val) => setDraftMobile(val.replace(/[^0-9]/g, ''))}
+                placeholder="+91 1234567890"
+                keyboardType="phone-pad"
+              />
+            ) : (
+              <View style={s.readonlyField}>
+                <Text style={s.readonlyText}>{user?.mobile || '—'}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Bio */}
+          <View style={s.fieldBlock}>
+            <Text style={s.fieldLabel}>BIO</Text>
+            {isEditing ? (
+              <InputField
+                value={draftBio}
+                onChangeText={setDraftBio}
+                multiline
+                placeholder="Tell your audience about yourself"
+              />
+            ) : (
+              <View style={[s.readonlyField, { minHeight: 64 }]}>
+                <Text style={[s.readonlyText, !user?.bio && { color: colors.textMuted }]}>
+                  {user?.bio || 'No bio added yet'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Language – always read-only */}
+          <View style={s.fieldBlock}>
+            <Text style={s.fieldLabel}>LANGUAGE</Text>
+            <View style={[s.readonlyField, s.readonlyDisabled]}>
+              <Text style={[s.readonlyText, { color: colors.textMuted }]}>English</Text>
+            </View>
+          </View>
+
+          {/* Save Changes – only shown in edit mode */}
+          {isEditing && (
+            <Button
+              label={saving ? 'Saving…' : 'Save Changes'}
+              onPress={saveProfile}
+              loading={saving}
+              style={{ marginTop: 8 }}
+            />
+          )}
+        </Card>
+      )}
 
       {tab === 'accounts' && (
         <View>
@@ -361,16 +439,17 @@ export default function ProfileScreen({ navigation }: any) {
   );
 }
 
-const getStyles = (colors: typeof Colors) => StyleSheet.create({
+const getStyles = (colors: typeof Colors, insets: any) => StyleSheet.create({
   root:    { flex: 1, backgroundColor: colors.bg0 },
-  content: { padding: Spacing.lg, paddingTop: 12 },
+  content: { padding: Spacing.lg, paddingTop: Math.max(insets.top, 24) + 12 },
 
   // User header
   userHeader:  { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: colors.bg2, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, marginBottom: 16 },
-  avatar:      { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center' },
+  avatar:      { width: 52, height: 52, borderRadius: 14, backgroundColor: colors.brand + '44', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarText:  { fontSize: 22, fontWeight: '900', color: colors.brand },
   userName:    { fontSize: 16, fontWeight: '800', color: colors.text },
   userEmail:   { fontSize: 12, color: colors.textMuted },
+  avatarImage: { width: '100%', height: '100%', borderRadius: 14 },
 
   // Tabs
   tabRow:        { gap: 8, marginBottom: 16 },
@@ -396,6 +475,18 @@ const getStyles = (colors: typeof Colors) => StyleSheet.create({
   readonlyField:   { backgroundColor: colors.bg3, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 13 },
   readonlyDisabled:{ backgroundColor: colors.bg0, opacity: 0.7 },
   readonlyText:    { fontSize: 14, color: colors.text, fontWeight: '500' },
+
+  // Avatar Edit Styles
+  avatarEditBlock: { marginBottom: 18 },
+  avatarEditContainer: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 4 },
+  avatarEditWrapper: { width: 64, height: 64, borderRadius: 16, backgroundColor: colors.bg3, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarEditImage: { width: '100%', height: '100%' },
+  avatarEditText: { fontSize: 26, fontWeight: '900', color: colors.brand },
+  avatarEditButtons: { flexDirection: 'row', gap: 10 },
+  changePhotoBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.brand + '12', borderRadius: 8, borderWidth: 1, borderColor: colors.brand + '33' },
+  changePhotoBtnText: { fontSize: 13, fontWeight: '700', color: colors.brand },
+  removePhotoBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.danger + '12', borderRadius: 8, borderWidth: 1, borderColor: colors.danger + '33' },
+  removePhotoBtnText: { fontSize: 13, fontWeight: '700', color: colors.danger },
 
   // Accounts
   accountRow:           { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },

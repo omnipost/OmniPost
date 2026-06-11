@@ -46,7 +46,8 @@ function TabBar({ state, descriptors, navigation }: any) {
   // Always show Profile tab on mobile and web
   const showProfile = true;
   const visibleRoutes = state.routes.filter((r: any) => (r.name !== 'Profile') ? true : showProfile);
-  const tabWidth = Math.max(64, width / Math.max(1, visibleRoutes.length));
+  // Calculate dynamic tab width based on available container width to prevent overflow
+  const tabWidth = (width - 12) / Math.max(1, visibleRoutes.length);
 
   return (
     <View style={{
@@ -54,9 +55,11 @@ function TabBar({ state, descriptors, navigation }: any) {
       backgroundColor: colors.bg1,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingBottom: insets.bottom + 10,
+      // Lift the tab bar content on devices with bottom safe area (like iPhone gesture indicator),
+      // and provide extra padding on Android devices to clear rounded screen corners.
+      paddingBottom: Math.max(insets.bottom, 16) + 8,
       paddingTop: 10,
-      paddingHorizontal: 8,
+      paddingHorizontal: 6,
     }}>
       {visibleRoutes.map((route: any, idx: number) => {
         const routeIndex = state.routes.findIndex((r: any) => r.key === route.key);
@@ -67,6 +70,8 @@ function TabBar({ state, descriptors, navigation }: any) {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
           if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
         }
+
+        const labelFontSize = width < 375 ? 9 : 10;
 
         if (isCompose) {
           return (
@@ -82,7 +87,13 @@ function TabBar({ state, descriptors, navigation }: any) {
               }}>
                 <Text style={{ fontSize: 22 }}>✏️</Text>
               </View>
-              <Text style={{ fontSize: 10, color: isFocused ? colors.brand : colors.textMuted, marginTop: 4, fontWeight: '600' }}>Compose</Text>
+              <Text 
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                style={{ fontSize: labelFontSize, color: isFocused ? colors.brand : colors.textMuted, marginTop: 4, fontWeight: '600' }}
+              >
+                Compose
+              </Text>
             </TouchableOpacity>
           );
         }
@@ -91,7 +102,11 @@ function TabBar({ state, descriptors, navigation }: any) {
           <TouchableOpacity key={route.key} onPress={onPress} activeOpacity={0.8}
             style={{ width: tabWidth, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 20, opacity: isFocused ? 1 : 0.5 }}>{TAB_ICONS[route.name]}</Text>
-            <Text style={{ fontSize: 10, color: isFocused ? colors.brand : colors.textMuted, fontWeight: isFocused ? '700' : '500', marginTop: 4 }}>
+            <Text 
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{ fontSize: labelFontSize, color: isFocused ? colors.brand : colors.textMuted, fontWeight: isFocused ? '700' : '500', marginTop: 4 }}
+            >
               {route.name}
             </Text>
             {isFocused && (
@@ -109,7 +124,7 @@ function MainTabs() {
 
   return (
     <View style={{ flex: 1 }}>
-      {activeTab !== 'Profile' && <AppHeader />}
+      {activeTab !== 'Profile' && <AppHeader activeTab={activeTab} />}
       <Tab.Navigator tabBar={props => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
         <Tab.Screen name="Dashboard" component={DashboardScreen} listeners={{ focus: () => setActiveTab('Dashboard') }} />
         <Tab.Screen name="Analytics" component={AnalyticsScreen} listeners={{ focus: () => setActiveTab('Analytics') }} />
