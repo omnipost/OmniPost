@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import AuthLayout from '../../components/AuthLayout';
@@ -139,7 +140,8 @@ const makeStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
 // ── Onboarding (unchanged flow) ──────────────────────────────
 export function OnboardingScreen({ navigation }: { navigation: any }) {
   const { colors } = useTheme();
-  const ob = React.useMemo(() => getObStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const ob = React.useMemo(() => getObStyles(colors, insets), [colors, insets]);
   const [step, setStep]           = React.useState(0);
   const [connected, setConnected] = React.useState<string[]>([]);
   const steps = ['Welcome', 'Connect', 'Plan', 'Done'];
@@ -226,16 +228,16 @@ export function OnboardingScreen({ navigation }: { navigation: any }) {
   );
 }
 
-const getObStyles = (colors: ReturnType<typeof useTheme>['colors']) =>
+const getObStyles = (colors: ReturnType<typeof useTheme>['colors'], insets: any) =>
   StyleSheet.create({
-    progressBar:    { flexDirection: 'row', padding: 20, paddingTop: Platform.OS === 'ios' ? 52 : 40, alignItems: 'center' },
+    progressBar:    { flexDirection: 'row', padding: 20, paddingTop: Math.max(insets.top + 10, 40), alignItems: 'center' },
     stepDot:        { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bg3, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
     stepDotActive:  { backgroundColor: colors.brand, borderColor: colors.brand },
     stepNum:        { fontSize: 12, fontWeight: '700', color: colors.textMuted },
     stepNumActive:  { color: colors.white },
     stepLine:       { flex: 1, height: 2, backgroundColor: colors.border, marginHorizontal: 4 },
     stepLineActive: { backgroundColor: colors.brand },
-    content:        { padding: Spacing.xl, paddingTop: 16, flex: 1 },
+    content:        { padding: Spacing.xl, paddingTop: 16, paddingBottom: insets.bottom + 16, flex: 1 },
     centerBox:      { alignItems: 'center', paddingTop: 32 },
     bigEmoji:       { fontSize: 60, marginBottom: 16 },
     stepTitle:      { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 10, textAlign: 'center' },

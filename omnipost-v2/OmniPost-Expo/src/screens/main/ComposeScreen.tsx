@@ -9,6 +9,7 @@ import { Button, Card, PlatformIcon, Toggle, Badge } from '../../components/UI';
 import { MOCK_ACCOUNTS, MOCK_HASHTAG_SETS } from '../../services/mockData';
 import { PLATFORMS } from '../../constants/platforms';
 import Toast from 'react-native-toast-message';
+import { useSearchStore } from '../../store/searchStore';
 
 type PublishResult = { platform: string; status: 'success' | 'failed' };
 
@@ -26,10 +27,13 @@ export default function ComposeScreen({ navigation }: any) {
   const [customizing, setCustomizing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [results, setResults]       = useState<PublishResult[] | null>(null);
+
   const [showHSets, setShowHSets]   = useState(false);
   const [step, setStep]             = useState<'compose' | 'results'>('compose');
+  
+  const searchQuery = useSearchStore((state) => state.queries['Compose'] || '');
 
-  const connected = MOCK_ACCOUNTS.filter(a => a.status === 'connected');
+  const connected = MOCK_ACCOUNTS.filter(a => a.status === 'connected' && a.username.toLowerCase().includes(searchQuery.toLowerCase()));
   const selObjs   = connected.filter(a => selected.includes(a.id));
   const fullText  = text + (hashtags.length ? '\n\n' + hashtags.map(t => `#${t}`).join(' ') : '');
 

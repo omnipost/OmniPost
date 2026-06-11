@@ -13,6 +13,7 @@ import { Card, Button, Badge, EmptyState } from '../../components/UI';
 import { MOCK_MEDIA } from '../../services/mockData';
 import { fmtBytes } from '../../utils';
 import Toast from 'react-native-toast-message';
+import { useSearchStore } from '../../store/searchStore';
 import type { MediaAsset } from '../../types';
 
 type FilterType = 'all' | 'image' | 'video' | 'audio';
@@ -30,13 +31,17 @@ export default function MediaScreen() {
   const [filter, setFilter]     = useState<FilterType>('all');
   const [view, setView]         = useState<'grid' | 'list'>('grid');
   const [selected, setSelected] = useState<string[]>([]);
+  
+  const searchQuery = useSearchStore((state) => state.queries['Media'] || '');
 
   const totalBytes = MOCK_MEDIA.reduce((s, m) => s + m.size, 0);
   const usedMb     = totalBytes / 1_000_000;
   const limitMb    = 5120;
   const usedPct    = (usedMb / limitMb) * 100;
 
-  const filtered = MOCK_MEDIA.filter(m => filter === 'all' || m.type === filter);
+  const filtered = MOCK_MEDIA.filter(
+    m => (filter === 'all' || m.type === filter) && m.filename.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   function toggleSelect(id: string) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);

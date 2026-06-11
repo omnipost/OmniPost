@@ -9,16 +9,23 @@ import { MOCK_ACCOUNTS, MOCK_POSTS, MOCK_ANALYTICS } from '../../services/mockDa
 import { PLATFORMS } from '../../constants/platforms';
 import { format, formatDistanceToNow } from 'date-fns';
 
+import { useSearchStore } from '../../store/searchStore';
+
 export default function DashboardScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const { openComposer } = useUIStore();
   const { colors } = useTheme();
   const styles = React.useMemo(() => getStyles(colors), [colors]);
+  
+  const searchQuery = useSearchStore((state) => state.queries['Dashboard'] || '');
+  
   const firstName = user?.name?.split(' ')[0] ?? 'Creator';
   const connected = MOCK_ACCOUNTS.filter(a => a.status === 'connected');
   const expired = MOCK_ACCOUNTS.filter(a => a.status === 'expired');
-  const scheduled = MOCK_POSTS.filter(p => p.status === 'scheduled');
-  const published = MOCK_POSTS.filter(p => p.status === 'published');
+  
+  const queryLower = searchQuery.toLowerCase();
+  const scheduled = MOCK_POSTS.filter(p => p.status === 'scheduled' && p.text.toLowerCase().includes(queryLower));
+  const published = MOCK_POSTS.filter(p => p.status === 'published' && p.text.toLowerCase().includes(queryLower));
 
   const [loading, setLoading] = useState(true);
 

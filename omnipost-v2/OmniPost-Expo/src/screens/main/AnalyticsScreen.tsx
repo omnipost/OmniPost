@@ -14,14 +14,21 @@ function fmtN(n: number): string {
   return n.toLocaleString('en-IN');
 }
 
+import { useSearchStore } from '../../store/searchStore';
+
 export default function AnalyticsScreen() {
   const { colors } = useTheme();
   const s = React.useMemo(() => getStyles(colors), [colors]);
+  
+  const searchQuery = useSearchStore((state) => state.queries['Analytics'] || '');
+
   const [range, setRange] = useState('30 days');
   const totalLikes    = MOCK_ANALYTICS.platforms.reduce((s, p) => s + p.likes, 0);
   const totalComments = MOCK_ANALYTICS.platforms.reduce((s, p) => s + p.comments, 0);
   const totalShares   = MOCK_ANALYTICS.platforms.reduce((s, p) => s + p.shares, 0);
-  const published = MOCK_POSTS.filter(p => p.status === 'published');
+  
+  const queryLower = searchQuery.toLowerCase();
+  const published = MOCK_POSTS.filter(p => p.status === 'published' && p.text.toLowerCase().includes(queryLower));
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>

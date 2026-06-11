@@ -6,12 +6,16 @@ import { Card, PlatformIcon, Badge, Button } from '../../components/UI';
 import { MOCK_POSTS } from '../../services/mockData';
 import { useUIStore } from '../../store/uiStore';
 import { format } from 'date-fns';
+import { useSearchStore } from '../../store/searchStore';
 
 export default function CalendarScreen({ navigation }: any) {
   const { colors } = useTheme();
   const s = React.useMemo(() => getStyles(colors), [colors]);
   const { openComposer } = useUIStore();
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  
+  const searchQuery = useSearchStore((state) => state.queries['Calendar'] || '');
+
   const DAYS_IN_MAY = 30;
   const START_DAY   = 3;
 
@@ -27,8 +31,9 @@ export default function CalendarScreen({ navigation }: any) {
     4:  [{ color: '#22D3EE', type: 'scheduled' }],
   };
 
-  const scheduled = MOCK_POSTS.filter(p => p.status === 'scheduled');
-  const published  = MOCK_POSTS.filter(p => p.status === 'published');
+  const queryLower = searchQuery.toLowerCase();
+  const scheduled = MOCK_POSTS.filter(p => p.status === 'scheduled' && p.text.toLowerCase().includes(queryLower));
+  const published  = MOCK_POSTS.filter(p => p.status === 'published' && p.text.toLowerCase().includes(queryLower));
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
